@@ -37,7 +37,6 @@ class BrowserWindow(QMainWindow):
         super().__init__(parent)
         
         self.setWindowTitle("桌面浏览器")
-        # 直接使用物理屏幕尺寸
         self.resize(QSize(WINDOW_WIDTH, WINDOW_HEIGHT))
         
         central_widget = QWidget()
@@ -49,27 +48,27 @@ class BrowserWindow(QMainWindow):
         self.browser.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         self.browser.setUrl(QUrl("https://www.winddine.top"))
         
-        # 优化触屏交互，增加缩放和拖拽
-        self.browser.setZoomFactor(0.8) # 适当缩小页面以适应小屏幕
+        self.browser.setZoomFactor(0.8)
 
         self.quit_button = QPushButton("退出")
-        # --- 优化退出按钮 ---
-        # 1. 调整字体大小，使文字更清晰
+        # 优化退出按钮：调整字体大小和按钮高度，使其更易于触摸
         font = QFont()
-        font.setPointSize(16) # 设置字体大小为16
+        font.setPointSize(24)  # 增大字体大小到24
         self.quit_button.setFont(font)
-
-        # 2. 设置按钮的最小尺寸，使其更容易触摸
-        self.quit_button.setMinimumHeight(50) # 设置最小高度为50像素
         
-        # 3. 添加简单的样式，使其更醒目
+        # 调整按钮尺寸策略，确保按钮可以填充布局并保持合理的最小高度
+        self.quit_button.setSizePolicy(QSizePolicy.Minimum, QSizePolicy.Minimum)
+        self.quit_button.setMinimumHeight(60) # 增大最小高度
+
         self.quit_button.setStyleSheet("background-color: #ff4d4d; color: white; border: none; border-radius: 5px;")
         
-        # --- 优化结束 ---
         self.quit_button.clicked.connect(self.on_quit)
         
-        layout.addWidget(self.browser)
-        layout.addWidget(self.quit_button)
+        # 使用 QSizePolicy 来控制布局的伸缩比例
+        # 浏览器占据大部分空间
+        layout.addWidget(self.browser, 1)
+        # 退出按钮占据较小空间
+        layout.addWidget(self.quit_button, 0)
     
     def on_quit(self):
         print(EXIT_SIGNAL)
