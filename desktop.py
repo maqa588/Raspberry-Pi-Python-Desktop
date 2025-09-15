@@ -265,4 +265,8 @@ class DesktopApp:
 if __name__ == "__main__":
     root = tk.Tk()
     app = DesktopApp(root)
-    root.mainloop()
+    try:
+        root.mainloop()
+    except:
+        KeyboardInterrupt()
+        print("Bye")
