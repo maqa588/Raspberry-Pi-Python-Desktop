@@ -230,11 +230,34 @@ class DesktopApp:
         self._status_reset_after_id = self.master.after(3000, lambda: self.status_text.config(text="就绪"))
 
     def show_loading_message(self, message):
-        """显示一个Tkinter提示框，并返回其引用"""
+        """显示一个居中对齐的Tkinter提示框，并返回其引用"""
         loading_window = tk.Toplevel(self.master)
         loading_window.title("请稍候")
+        
+        # 使其成为模态窗口，防止用户操作父窗口
+        loading_window.grab_set()
+
+        # 添加标签并强制更新，以便获取窗口尺寸
         tk.Label(loading_window, text=message, padx=20, pady=10).pack()
-        loading_window.update() # 强制更新窗口，确保它立即显示
+        loading_window.update() 
+
+        # 获取父窗口的几何信息
+        parent_width = self.master.winfo_width()
+        parent_height = self.master.winfo_height()
+        parent_x = self.master.winfo_x()
+        parent_y = self.master.winfo_y()
+
+        # 获取提示框的尺寸
+        loading_width = loading_window.winfo_width()
+        loading_height = loading_window.winfo_height()
+        
+        # 计算居中位置
+        position_x = parent_x + (parent_width // 2) - (loading_width // 2)
+        position_y = parent_y + (parent_height // 2) - (loading_height // 2)
+        
+        # 设置提示框的位置
+        loading_window.geometry(f"+{position_x}+{position_y}")
+        
         return loading_window
     
     def open_terminal(self):
