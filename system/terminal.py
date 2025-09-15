@@ -40,6 +40,9 @@ def open_terminal_system():
                 menubar.add_cascade(label="文件", menu=file_menu)
                 root.config(menu=menubar)
 
+                # 关键修改：强制 Tkinter 立即更新窗口
+                root.update_idletasks()
+                
                 # 创建一个 Frame 作为 xterm 的容器
                 term_frame = tk.Frame(root, width=480, height=290)
                 term_frame.pack(fill=tk.BOTH, expand=True)
