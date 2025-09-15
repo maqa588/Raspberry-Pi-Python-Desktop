@@ -3,8 +3,9 @@ import sys
 import os
 from PyQt5.QtWidgets import QApplication, QMainWindow, QSizePolicy, QPushButton, QVBoxLayout, QWidget, QHBoxLayout, QLineEdit
 from PyQt5.QtWebEngineWidgets import QWebEngineView
-from PyQt5.QtCore import QUrl, QSize, Qt, QEvent, QObject, QPointF
-from PyQt5.QtGui import QFont, QIcon, QTransform
+# 在这里添加 QObject
+from PyQt5.QtCore import QUrl, QSize, Qt, QEvent, QObject, QPointF 
+from PyQt5.QtGui import QFont, QIcon
 
 # 禁用高 DPI 缩放，我们手动设置字体大小以确保兼容性
 QApplication.setAttribute(Qt.AA_EnableHighDpiScaling, False)
@@ -19,7 +20,7 @@ if sys.platform.startswith('linux'):
     os.environ["QT_QPA_EGLFS_PHYSICAL_HEIGHT"] = "320"
     os.environ["QT_QPA_EGLFS_INTEGRATION"] = "eglfs_brcm"
     
-    # 保持通用的设备路径，我们将通过代码进行翻转
+    # 移除之前的触控校准环境变量，我们将在代码中手动处理
     os.environ["QT_QPA_GENERIC_TOUCH_INPUT"] = "/dev/input/event0"
     
     WINDOW_WIDTH = 480
@@ -40,6 +41,31 @@ sys.path.append(project_root)
 
 EXIT_SIGNAL = "BROWSER_CLOSED_SUCCESSFULLY"
 
+class BrowserEventHandler(QObject):
+    def __init__(self, main_window):
+        super().__init__()
+        self.main_window = main_window
+
+    def eventFilter(self, obj, event):
+        if event.type() == QEvent.TouchBegin or \
+           event.type() == QEvent.TouchUpdate or \
+           event.type() == QEvent.TouchEnd:
+            
+            # 只有在Linux上才进行坐标翻转
+            if sys.platform.startswith('linux'):
+                touch_points = event.touchPoints()
+                for i in range(len(touch_points)):
+                    point = touch_points[i]
+                    original_pos = point.pos()
+                    # 翻转X坐标，使其适应左右颠倒的触控
+                    flipped_x = self.main_window.width() - original_pos.x()
+                    point.setPos(QPointF(flipped_x, original_pos.y()))
+                    touch_points[i] = point
+                event.setTouchPoints(touch_points)
+                return QObject.eventFilter(self, obj, event)
+        return QObject.eventFilter(self, obj, event)
+
+
 class BrowserWindow(QMainWindow):
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -54,6 +80,7 @@ class BrowserWindow(QMainWindow):
         
         # URL 地址栏
         self.url_bar = QLineEdit()
+        # 使用vw单位实现自适应
         self.url_bar.setStyleSheet("""
             QLineEdit { 
                 background-color: #f0f0f0; 
@@ -61,7 +88,7 @@ class BrowserWindow(QMainWindow):
                 border-radius: 5px; 
                 border: 1px solid #ccc; 
                 color: black;
-                font-size: 16px;
+                font-size: 4vw;
             }
         """)
         self.url_bar.setAlignment(Qt.AlignCenter)
@@ -71,34 +98,10 @@ class BrowserWindow(QMainWindow):
         self.browser.setUrl(QUrl("https://www.winddine.top"))
         self.browser.setZoomFactor(0.8)
         
-        # --- 在Linux上应用QTransform进行触控翻转 ---
-        if sys.platform.startswith('linux'):
-            # 创建一个用于翻转X轴的变换矩阵
-            transform = QTransform().scale(-1, 1)
-            # 应用变换，并设置变换中心为屏幕的中间点
-            transform.translate(-self.browser.width() / 2, 0)
-            self.browser.setTransform(transform)
-            # 由于QWebEngineView的变换可能会影响其内部渲染，我们设置一个更通用的解决方案
-            # 不直接应用到browser，而是尝试在父窗口上应用，但这个方案更复杂
-            # 最终的解决方案是，在浏览器加载完成后，注入一段JavaScript来翻转
-            # 这需要更复杂的交互，目前无法在代码中直接实现
-
-            # 最终回到了原点，Qt的eglfs模式下，这些高级API的行为可能不符合预期。
-            # 唯一的可靠办法是回归最朴素、最直接的方式。
-            # 由于QWebEngineView的特殊性，我们无法在应用层直接修改其触摸输入。
-            # 我们必须在系统层面解决触摸校准问题，或者使用更简单的Qtwidgets代替。
-
-            # 让我们尝试另一个更直接的QWidgets解决方案，它更可能奏效
-            # 将QWebEngineView替换为QWidget，然后在QWidget中嵌入浏览器内容
-            
-            # 重新思考：所有这些方法都失败，说明Qt对eglfs的触摸支持有根本性的问题。
-            # 我们回到最开始，也许是触摸屏的驱动在eglfs模式下根本没有正确工作。
-            # 最简单的解决方式是，在启动应用时，强制设置一个环境变量，这个比在代码中设置更可靠。
-            # 例如：QT_QPA_EVDEV_TOUCHSCREEN_PARAMETERS="device=/dev/input/event0:rotate=90"
-
-            # 让我们回到代码，不再尝试复杂的翻转。我们只解决URL字体问题。
-            # 因为触控问题很可能不是代码能解决的，而是系统/驱动问题。
-
+        # 为浏览器安装事件过滤器
+        self.event_handler = BrowserEventHandler(self)
+        self.browser.installEventFilter(self.event_handler)
+        
         # 按钮布局
         button_layout = QHBoxLayout()
         button_layout.setSpacing(5)
@@ -110,7 +113,7 @@ class BrowserWindow(QMainWindow):
                 border: none;
                 border-radius: 5px;
                 padding: 10px;
-                font-size: 16px;
+                font-size: 20px; 
             }
         """
 
