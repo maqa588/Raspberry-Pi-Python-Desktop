@@ -3,7 +3,6 @@ import sys
 import os
 from PyQt5.QtWidgets import QApplication, QMainWindow, QSizePolicy, QPushButton, QVBoxLayout, QWidget, QHBoxLayout, QLineEdit
 from PyQt5.QtWebEngineWidgets import QWebEngineView
-# 在这里添加 QObject
 from PyQt5.QtCore import QUrl, QSize, Qt, QEvent, QObject, QPointF 
 from PyQt5.QtGui import QFont, QIcon
 
@@ -39,7 +38,7 @@ else:
 project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(project_root)
 
-EXIT_SIGNAL = "BROWSER_CLOSED_SUCCESSFULLY"
+EXIT_SIGNAL = "浏览器成功退出"
 
 # 已经删除 BrowserEventHandler 类
 
