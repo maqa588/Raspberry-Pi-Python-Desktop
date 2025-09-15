@@ -36,7 +36,7 @@ def open_terminal_system():
                 # 创建顶部菜单栏
                 menubar = tk.Menu(root)
                 file_menu = tk.Menu(menubar, tearoff=0)
-                file_menu.add_command(label="退出", command=root.quit)
+                file_menu.add_command(label="退出", command=root.destroy)
                 menubar.add_cascade(label="文件", menu=file_menu)
                 root.config(menu=menubar)
 
