@@ -269,4 +269,5 @@ if __name__ == "__main__":
         root.mainloop()
     except:
         KeyboardInterrupt()
+        exit()
         print("Bye")

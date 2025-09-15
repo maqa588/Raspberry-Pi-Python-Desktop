@@ -37,7 +37,7 @@ def open_terminal_system():
                 menubar = tk.Menu(root)
                 file_menu = tk.Menu(menubar, tearoff=0)
                 file_menu.add_command(label="退出", command=root.destroy)
-                menubar.add_cascade(label="文件", menu=file_menu)
+                menubar.add_cascade(label="操作", menu=file_menu)
                 root.config(menu=menubar)
 
                 # 关键修改：强制 Tkinter 立即更新窗口
