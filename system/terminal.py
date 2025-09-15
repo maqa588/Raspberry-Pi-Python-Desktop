@@ -42,12 +42,14 @@ def open_terminal_system():
 
                 # 关键修改：强制 Tkinter 立即更新窗口
                 root.update_idletasks()
-                
+
                 # 创建一个 Frame 作为 xterm 的容器
                 term_frame = tk.Frame(root, width=480, height=290)
                 term_frame.pack(fill=tk.BOTH, expand=True)
 
                 # 获取 Frame 的窗口 ID
+                term_frame.update_idletasks() # 强制更新，确保窗口已经完全渲染
+                root.update_idletasks()
                 window_id = term_frame.winfo_id()
 
                 # 启动 xterm 并嵌入到 Frame 中
