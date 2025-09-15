@@ -10,20 +10,24 @@ from system.config import WINDOW_WIDTH, WINDOW_HEIGHT
 # 定义一个全局变量来存储 xterm 进程对象
 xterm_process = None
 
+# 修改 on_quit 函数
 def on_quit():
-    """
-    自定义的退出函数，用于关闭 Tkinter 窗口和 xterm 进程。
-    """
     global xterm_process
+    print("尝试退出...")
     if xterm_process and xterm_process.poll() is None:
-        # 如果进程仍在运行，则终止它
+        print("xterm 进程仍在运行，尝试终止...")
         xterm_process.terminate()
-        # 如果需要，也可以使用 kill() 来强制终止
-        # xterm_process.kill()
+        # 等待进程退出，以防万一
+        try:
+            xterm_process.wait(timeout=2)
+            print("xterm 进程已终止。")
+        except subprocess.TimeoutExpired:
+            print("无法在规定时间内终止 xterm，强制关闭。")
+            xterm_process.kill()
     
-    # 销毁 Tkinter 窗口
+    print("销毁 Tkinter 窗口...")
     root.destroy()
-
+    print("退出完成。")
 
 def open_terminal_system():
     """
@@ -46,6 +50,7 @@ def open_terminal_system():
                 root = tk.Tk()
                 root.title("嵌入式终端")
                 root.geometry(f"{WINDOW_WIDTH}x{WINDOW_HEIGHT}")
+                root.protocol("WM_DELETE_WINDOW", on_quit)
 
                 # 创建顶部菜单栏，并绑定自定义的退出函数
                 menubar = tk.Menu(root)
