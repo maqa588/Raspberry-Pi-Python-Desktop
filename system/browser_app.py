@@ -5,6 +5,14 @@ from PyQt5.QtWidgets import QApplication, QMainWindow, QSizePolicy, QPushButton,
 from PyQt5.QtWebEngineWidgets import QWebEngineView
 from PyQt5.QtCore import QUrl, QSize
 
+# 在导入 PyQt5 模块之前，设置环境变量来禁用 GPU 硬件加速
+# 强制使用软件（CPU）渲染
+os.environ["QTWEBENGINE_DISABLE_SANDBOX"] = "1"
+os.environ["QT_QPA_PLATFORM"] = "eglfs"
+os.environ["QT_QPA_EGLFS_PHYSICAL_WIDTH"] = "480"
+os.environ["QT_QPA_EGLFS_PHYSICAL_HEIGHT"] = "320"
+os.environ["QT_QPA_EGLFS_INTEGRATION"] = "eglfs_brcm" # 或者其他适用于你的树莓派型号的集成方式
+
 project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(project_root)
 
@@ -18,7 +26,7 @@ class BrowserWindow(QMainWindow):
         super().__init__(parent)
         
         self.setWindowTitle("桌面浏览器")
-        self.resize(QSize(WINDOW_WIDTH, WINDOW_HEIGHT))
+        self.resize(QSize(WINDOW_WIDTH, (WINDOW_HEIGHT + 10)))
         
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
