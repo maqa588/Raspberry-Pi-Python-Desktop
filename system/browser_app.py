@@ -1,10 +1,10 @@
 # system/browser_app.py
 import sys
 import os
-from PyQt5.QtWidgets import QApplication, QMainWindow, QSizePolicy, QPushButton, QVBoxLayout, QWidget
+from PyQt5.QtWidgets import QApplication, QMainWindow, QSizePolicy, QPushButton, QVBoxLayout, QWidget, QHBoxLayout, QLineEdit
 from PyQt5.QtWebEngineWidgets import QWebEngineView
-from PyQt5.QtCore import QUrl, QSize
-from PyQt5.QtGui import QFont
+from PyQt5.QtCore import QUrl, QSize, Qt
+from PyQt5.QtGui import QFont, QIcon
 
 # 根据操作系统类型来设置环境变量
 # 这可以防止在 macOS 或 Windows 上运行时因环境变量不兼容而崩溃
@@ -20,16 +20,12 @@ if sys.platform.startswith('linux') and os.path.exists('/dev/input/event0'):
     WINDOW_HEIGHT = 320
 else:
     print("在非Linux系统上运行，使用默认配置...")
-    # 在macOS/Windows上运行时，PyQt5会自动选择合适的平台插件，无需手动设置。
-    # 如果系统是macOS，Qt会自动选择cocoa平台插件。
-    # 窗口尺寸使用默认值或你希望在桌面上显示的尺寸
     WINDOW_WIDTH = 800
     WINDOW_HEIGHT = 600
 
 project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(project_root)
 
-# 定义一个退出信号，便于上级进程识别
 EXIT_SIGNAL = "BROWSER_CLOSED_SUCCESSFULLY"
 
 class BrowserWindow(QMainWindow):
@@ -42,41 +38,95 @@ class BrowserWindow(QMainWindow):
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
         
-        layout = QVBoxLayout(central_widget)
+        main_layout = QVBoxLayout(central_widget)
         
+        # URL 地址栏
+        self.url_bar = QLineEdit()
+        self.url_bar.setFont(QFont("Arial", 10))
+        # 调整样式：设置文本居中，颜色为黑色
+        self.url_bar.setStyleSheet("""
+            QLineEdit { 
+                background-color: #f0f0f0; 
+                padding: 5px; 
+                border-radius: 5px; 
+                border: 1px solid #ccc; 
+                color: black;
+            }
+        """)
+        self.url_bar.setAlignment(Qt.AlignCenter)
+
+        # --- 先创建浏览器控件，再创建其他依赖它的控件 ---
         self.browser = QWebEngineView()
         self.browser.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         self.browser.setUrl(QUrl("https://www.winddine.top"))
-        
         self.browser.setZoomFactor(0.8)
+        
+        # 按钮布局
+        button_layout = QHBoxLayout()
+        button_layout.setSpacing(5) # 调整按钮间距
 
+        # 返回按钮
+        self.back_button = QPushButton()
+        self.back_button.setIcon(QIcon.fromTheme("go-previous"))
+        self.back_button.setText("上一页")
+        self.back_button.setStyleSheet("background-color: #4CAF50; color: white; border: none; border-radius: 5px; padding: 10px;")
+        self.back_button.clicked.connect(self.browser.back)
+        button_layout.addWidget(self.back_button)
+
+        # 前进按钮
+        self.next_button = QPushButton()
+        self.next_button.setIcon(QIcon.fromTheme("go-next"))
+        self.next_button.setText("下一页")
+        self.next_button.setStyleSheet("background-color: #4CAF50; color: white; border: none; border-radius: 5px; padding: 10px;")
+        self.next_button.clicked.connect(self.browser.forward)
+        button_layout.addWidget(self.next_button)
+
+        # 刷新按钮
+        self.refresh_button = QPushButton()
+        self.refresh_button.setIcon(QIcon.fromTheme("view-refresh"))
+        self.refresh_button.setText("刷新")
+        self.refresh_button.setStyleSheet("background-color: #4CAF50; color: white; border: none; border-radius: 5px; padding: 10px;")
+        self.refresh_button.clicked.connect(self.browser.reload)
+        button_layout.addWidget(self.refresh_button)
+        
+        # 主页按钮
+        self.home_button = QPushButton()
+        self.home_button.setIcon(QIcon.fromTheme("go-home"))
+        self.home_button.setText("主页")
+        self.home_button.setStyleSheet("background-color: #2196F3; color: white; border: none; border-radius: 5px; padding: 10px;")
+        self.home_button.clicked.connect(self.go_home)
+        button_layout.addWidget(self.home_button)
+        
+        # 退出按钮
         self.quit_button = QPushButton("退出")
-        # 优化退出按钮：调整字体大小和按钮高度，使其更易于触摸
+        self.quit_button.setIcon(QIcon.fromTheme("application-exit"))
         font = QFont()
-        font.setPointSize(24)  # 增大字体大小到24
+        font.setPointSize(14)
         self.quit_button.setFont(font)
-        
-        # 调整按钮尺寸策略，确保按钮可以填充布局并保持合理的最小高度
-        self.quit_button.setSizePolicy(QSizePolicy.Minimum, QSizePolicy.Minimum)
-        self.quit_button.setMinimumHeight(60) # 增大最小高度
-
-        self.quit_button.setStyleSheet("background-color: #ff4d4d; color: white; border: none; border-radius: 5px;")
-        
+        self.quit_button.setStyleSheet("background-color: #ff4d4d; color: white; border: none; border-radius: 5px; padding: 10px;")
         self.quit_button.clicked.connect(self.on_quit)
+        button_layout.addWidget(self.quit_button)
+
+        # 关联 URL 变化和 URL 地址栏
+        self.browser.urlChanged.connect(self.update_url_bar)
         
-        # 使用 QSizePolicy 来控制布局的伸缩比例
-        # 浏览器占据大部分空间
-        layout.addWidget(self.browser, 1)
-        # 退出按钮占据较小空间
-        layout.addWidget(self.quit_button, 0)
-    
+        # 将所有控件添加到主布局中
+        main_layout.addWidget(self.url_bar)
+        main_layout.addLayout(button_layout)
+        main_layout.addWidget(self.browser)
+
+    def go_home(self):
+        self.browser.setUrl(QUrl("https://www.winddine.top"))
+
+    def update_url_bar(self, url):
+        self.url_bar.setText(url.toString())
+
     def on_quit(self):
         print(EXIT_SIGNAL)
         self.close()
         QApplication.instance().quit()
 
 def create_browser_window():
-    """创建一个 PyQt5 浏览器窗口"""
     app = QApplication(sys.argv)
     window = BrowserWindow()
     window.show()
