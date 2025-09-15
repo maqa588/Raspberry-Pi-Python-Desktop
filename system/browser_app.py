@@ -6,10 +6,17 @@ from PyQt5.QtWebEngineWidgets import QWebEngineView
 from PyQt5.QtCore import QUrl, QSize, Qt
 from PyQt5.QtGui import QFont, QIcon
 
-# 根据操作系统类型来设置环境变量
-# 这可以防止在 macOS 或 Windows 上运行时因环境变量不兼容而崩溃
-if sys.platform.startswith('linux') and os.path.exists('/dev/input/event0'):
-    print("在Linux（树莓派）上运行，启用嵌入式模式...")
+# 启用高 DPI 缩放，使其在不同分辨率屏幕上显示正常
+QApplication.setAttribute(Qt.AA_EnableHighDpiScaling)
+QApplication.setAttribute(Qt.AA_UseHighDpiPixmaps)
+
+# --- 优化平台判断逻辑 ---
+# 在明确是 Linux 系统时，才设置特定的嵌入式环境变量
+if sys.platform.startswith('linux'):
+    print("在Linux系统上运行，启用嵌入式模式...")
+    # 检查是否为树莓派，并设置特定的环境变量
+    # 这里的设备路径需要根据你的实际设备进行调整
+    # 例如：/dev/input/event0 或其他
     os.environ["QTWEBENGINE_DISABLE_SANDBOX"] = "1"
     os.environ["QT_QPA_PLATFORM"] = "eglfs"
     os.environ["QT_QPA_EGLFS_PHYSICAL_WIDTH"] = "480"
@@ -18,8 +25,17 @@ if sys.platform.startswith('linux') and os.path.exists('/dev/input/event0'):
     os.environ["QT_QPA_GENERIC_TOUCH_INPUT"] = "/dev/input/event0"
     WINDOW_WIDTH = 480
     WINDOW_HEIGHT = 320
+
+# 在 macOS 上运行时，使用默认配置
+elif sys.platform == 'darwin':
+    print("在macOS上运行，使用默认配置...")
+    # 确保没有设置任何影响macOS本地渲染的环境变量
+    WINDOW_WIDTH = 800
+    WINDOW_HEIGHT = 600
+    
+# 其他平台使用通用默认配置
 else:
-    print("在非Linux系统上运行，使用默认配置...")
+    print("在其他非Linux系统上运行，使用默认配置...")
     WINDOW_WIDTH = 800
     WINDOW_HEIGHT = 600
 
@@ -43,7 +59,6 @@ class BrowserWindow(QMainWindow):
         # URL 地址栏
         self.url_bar = QLineEdit()
         self.url_bar.setFont(QFont("Arial", 10))
-        # 调整样式：设置文本居中，颜色为黑色
         self.url_bar.setStyleSheet("""
             QLineEdit { 
                 background-color: #f0f0f0; 
@@ -55,7 +70,6 @@ class BrowserWindow(QMainWindow):
         """)
         self.url_bar.setAlignment(Qt.AlignCenter)
 
-        # --- 先创建浏览器控件，再创建其他依赖它的控件 ---
         self.browser = QWebEngineView()
         self.browser.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         self.browser.setUrl(QUrl("https://www.winddine.top"))
@@ -63,7 +77,7 @@ class BrowserWindow(QMainWindow):
         
         # 按钮布局
         button_layout = QHBoxLayout()
-        button_layout.setSpacing(5) # 调整按钮间距
+        button_layout.setSpacing(5)
 
         # 返回按钮
         self.back_button = QPushButton()
