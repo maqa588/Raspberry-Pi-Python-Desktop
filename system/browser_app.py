@@ -3,14 +3,14 @@ import sys
 import os
 from PyQt5.QtWidgets import QApplication, QMainWindow, QSizePolicy, QPushButton, QVBoxLayout, QWidget, QHBoxLayout, QLineEdit
 from PyQt5.QtWebEngineWidgets import QWebEngineView
-from PyQt5.QtCore import QUrl, QSize, Qt
+from PyQt5.QtCore import QUrl, QSize, Qt, QEvent
 from PyQt5.QtGui import QFont, QIcon
 
 # 禁用高 DPI 缩放，我们手动设置字体大小以确保兼容性
 QApplication.setAttribute(Qt.AA_EnableHighDpiScaling, False)
 QApplication.setAttribute(Qt.AA_UseHighDpiPixmaps, False)
 
-# --- 优化平台判断逻辑 ---
+# --- 平台判断逻辑 ---
 if sys.platform.startswith('linux'):
     print("在Linux系统上运行，启用嵌入式模式...")
     os.environ["QTWEBENGINE_DISABLE_SANDBOX"] = "1"
@@ -19,12 +19,8 @@ if sys.platform.startswith('linux'):
     os.environ["QT_QPA_EGLFS_PHYSICAL_HEIGHT"] = "320"
     os.environ["QT_QPA_EGLFS_INTEGRATION"] = "eglfs_brcm"
     
-    # 使用 QT_QPA_EVDEV_TOUCHSCREEN_PARAMETERS 进行手动校准
-    # 这段参数将翻转x轴，以适应左右颠倒的问题
-    # 格式为：device=/dev/input/event0:Calibration=minX,maxX,minY,maxY
-    # 对于480x320的屏幕，左右颠倒，我们设置minX=480, maxX=0
-    touchscreen_path = "/dev/input/event0" # 请确保这是你正确的设备路径
-    os.environ["QT_QPA_EVDEV_TOUCHSCREEN_PARAMETERS"] = f"device={touchscreen_path}:Calibration=480,0,0,320"
+    # 移除之前的触控校准环境变量，我们将在代码中手动处理
+    os.environ["QT_QPA_GENERIC_TOUCH_INPUT"] = "/dev/input/event0"
     
     WINDOW_WIDTH = 480
     WINDOW_HEIGHT = 320
@@ -44,6 +40,31 @@ sys.path.append(project_root)
 
 EXIT_SIGNAL = "BROWSER_CLOSED_SUCCESSFULLY"
 
+class BrowserEventHandler(QObject):
+    def __init__(self, main_window):
+        super().__init__()
+        self.main_window = main_window
+
+    def eventFilter(self, obj, event):
+        if event.type() == QEvent.TouchBegin or \
+           event.type() == QEvent.TouchUpdate or \
+           event.type() == QEvent.TouchEnd:
+            
+            # 只有在Linux上才进行坐标翻转
+            if sys.platform.startswith('linux'):
+                touch_points = event.touchPoints()
+                for i in range(len(touch_points)):
+                    point = touch_points[i]
+                    original_pos = point.pos()
+                    # 翻转X坐标，使其适应左右颠倒的触控
+                    flipped_x = self.main_window.width() - original_pos.x()
+                    point.setPos(QPointF(flipped_x, original_pos.y()))
+                    touch_points[i] = point
+                event.setTouchPoints(touch_points)
+                return QObject.eventFilter(self, obj, event)
+        return QObject.eventFilter(self, obj, event)
+
+
 class BrowserWindow(QMainWindow):
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -58,7 +79,7 @@ class BrowserWindow(QMainWindow):
         
         # URL 地址栏
         self.url_bar = QLineEdit()
-        # 使用CSS设置字体大小（px），确保固定大小
+        # 使用vw单位实现自适应
         self.url_bar.setStyleSheet("""
             QLineEdit { 
                 background-color: #f0f0f0; 
@@ -66,7 +87,7 @@ class BrowserWindow(QMainWindow):
                 border-radius: 5px; 
                 border: 1px solid #ccc; 
                 color: black;
-                font-size: 20px; 
+                font-size: 4vw;
             }
         """)
         self.url_bar.setAlignment(Qt.AlignCenter)
@@ -75,6 +96,10 @@ class BrowserWindow(QMainWindow):
         self.browser.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         self.browser.setUrl(QUrl("https://www.winddine.top"))
         self.browser.setZoomFactor(0.8)
+        
+        # 为浏览器安装事件过滤器
+        self.event_handler = BrowserEventHandler(self)
+        self.browser.installEventFilter(self.event_handler)
         
         # 按钮布局
         button_layout = QHBoxLayout()
