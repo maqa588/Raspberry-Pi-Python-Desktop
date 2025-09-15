@@ -10,8 +10,8 @@
         "id": "browser",
         "text": "\u6d4f\u89c8\u5668",
         "icon": "icons/browser.png",
-        "x": 169.0,
-        "y": 73.0
+        "x": 191.0,
+        "y": 85.0
     },
     {
         "id": "files",
@@ -24,7 +24,7 @@
         "id": "editor",
         "text": "\u6587\u672c\u7f16\u8f91\u5668",
         "icon": "icons/editor.png",
-        "x": 192.0,
+        "x": 191.0,
         "y": 175.0
     }
 ]
