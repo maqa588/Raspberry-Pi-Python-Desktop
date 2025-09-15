@@ -1,4 +1,4 @@
-from PIL import Image, ImageTk, ImageDraw
+from PIL import Image, ImageDraw
 import os
 
 # --- 辅助函数：如果图标不存在，则创建占位图标 ---

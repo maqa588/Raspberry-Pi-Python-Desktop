@@ -1,14 +1,12 @@
 import tkinter as tk
 from tkinter import messagebox
-from PIL import Image, ImageTk, ImageDraw
-import subprocess
-import platform
+from PIL import Image, ImageTk
 import json
 import os
 import time
 
 from system.terminal import open_terminal_system
-from system.terminal import create_placeholder_icon
+from system.CreatePlaceholderIcon import create_placeholder_icon
 
 # --- 配置 ---
 CONFIG_FILE = 'desktop_layout.json'
