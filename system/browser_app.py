@@ -18,8 +18,7 @@ if sys.platform.startswith('linux'):
     os.environ["QT_QPA_EGLFS_PHYSICAL_WIDTH"] = "480"
     os.environ["QT_QPA_EGLFS_PHYSICAL_HEIGHT"] = "320"
     os.environ["QT_QPA_EGLFS_INTEGRATION"] = "eglfs_brcm"
-    # *** 请将这里的设备路径替换为你的实际路径 ***
-    os.environ["QT_QPA_GENERIC_TOUCH_INPUT"] = "/dev/input/event0" 
+    os.environ["QT_QPA_GENERIC_TOUCH_INPUT"] = "/dev/input/event0:invertx"
     WINDOW_WIDTH = 480
     WINDOW_HEIGHT = 320
 
@@ -52,7 +51,7 @@ class BrowserWindow(QMainWindow):
         
         # URL 地址栏
         self.url_bar = QLineEdit()
-        self.url_bar.setFont(QFont("Arial", 10))
+        self.url_bar.setFont(QFont("Arial", 20))
         self.url_bar.setStyleSheet("""
             QLineEdit { 
                 background-color: #f0f0f0; 
@@ -73,7 +72,6 @@ class BrowserWindow(QMainWindow):
         button_layout = QHBoxLayout()
         button_layout.setSpacing(5)
         
-        # 统一的按钮样式，手动设置字体大小
         button_style = """
             QPushButton {
                 background-color: %s;
@@ -85,45 +83,38 @@ class BrowserWindow(QMainWindow):
             }
         """
 
-        # 返回按钮
         self.back_button = QPushButton("上一页")
         self.back_button.setIcon(QIcon.fromTheme("go-previous"))
         self.back_button.setStyleSheet(button_style % "#4CAF50")
         self.back_button.clicked.connect(self.browser.back)
         button_layout.addWidget(self.back_button)
 
-        # 前进按钮
         self.next_button = QPushButton("下一页")
         self.next_button.setIcon(QIcon.fromTheme("go-next"))
         self.next_button.setStyleSheet(button_style % "#4CAF50")
         self.next_button.clicked.connect(self.browser.forward)
         button_layout.addWidget(self.next_button)
 
-        # 刷新按钮
         self.refresh_button = QPushButton("刷新")
         self.refresh_button.setIcon(QIcon.fromTheme("view-refresh"))
         self.refresh_button.setStyleSheet(button_style % "#4CAF50")
         self.refresh_button.clicked.connect(self.browser.reload)
         button_layout.addWidget(self.refresh_button)
         
-        # 主页按钮
         self.home_button = QPushButton("主页")
         self.home_button.setIcon(QIcon.fromTheme("go-home"))
         self.home_button.setStyleSheet(button_style % "#2196F3")
         self.home_button.clicked.connect(self.go_home)
         button_layout.addWidget(self.home_button)
         
-        # 退出按钮
         self.quit_button = QPushButton("退出")
         self.quit_button.setIcon(QIcon.fromTheme("application-exit"))
         self.quit_button.setStyleSheet(button_style % "#ff4d4d")
         self.quit_button.clicked.connect(self.on_quit)
         button_layout.addWidget(self.quit_button)
 
-        # 关联 URL 变化和 URL 地址栏
         self.browser.urlChanged.connect(self.update_url_bar)
         
-        # 将所有控件添加到主布局中
         main_layout.addWidget(self.url_bar)
         main_layout.addLayout(button_layout)
         main_layout.addWidget(self.browser)
@@ -135,8 +126,10 @@ class BrowserWindow(QMainWindow):
         self.url_bar.setText(url.toString())
 
     def on_quit(self):
+        # 打印退出信号，然后通知Qt事件循环结束
         print(EXIT_SIGNAL)
-        os._exit(0)
+        self.close()
+        QApplication.instance().quit()
 
 def create_browser_window():
     app = QApplication(sys.argv)
