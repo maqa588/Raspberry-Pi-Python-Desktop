@@ -5,16 +5,9 @@ import json
 import os
 import time
 
+from system.config import CONFIG_FILE, CANVAS_WIDTH, CANVAS_HEIGHT, WINDOW_WIDTH, WINDOW_HEIGHT
 from system.terminal import open_terminal_system
 from system.CreatePlaceholderIcon import create_placeholder_icon
-
-# --- 配置 ---
-CONFIG_FILE = 'desktop_layout.json'
-WINDOW_WIDTH = 480
-WINDOW_HEIGHT = 290
-# 画布的虚拟大小，大于窗口尺寸以实现滚动效果
-CANVAS_WIDTH = 800
-CANVAS_HEIGHT = 600
 
 class DesktopIcon:
     """管理单个桌面图标的类"""
