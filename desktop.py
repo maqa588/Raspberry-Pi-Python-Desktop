@@ -7,6 +7,7 @@ import time
 
 from system.config import CONFIG_FILE, CANVAS_WIDTH, CANVAS_HEIGHT, WINDOW_WIDTH, WINDOW_HEIGHT
 from system.terminal import open_terminal_system
+from system.browser import open_browser_system
 from system.CreatePlaceholderIcon import create_placeholder_icon
 
 class DesktopIcon:
@@ -84,7 +85,7 @@ class DesktopApp:
         status_frame = tk.Frame(self.root, bd=1, relief="sunken")
         status_frame.pack(side="bottom", fill="x")
 
-        self.status_text = tk.Label(status_frame, text="已准备", anchor="w")
+        self.status_text = tk.Label(status_frame, text="就绪", anchor="w")
         self.status_text.pack(side="left", padx=(5,0))
         self._status_reset_after_id = None
 
@@ -237,10 +238,15 @@ class DesktopApp:
             self.open_reset()
 
     def open_browser(self):
-        """打开浏览器的操作逻辑"""
+        """打开浏览器的操作逻辑（委托给 system/browser.py）"""
         print("执行打开浏览器的操作...")
-        messagebox.showinfo("操作", "正在打开浏览器...")
-        # os.system('chromium-browser &')
+        success = open_browser_system()
+        if success:
+            self.status_text.config(text="浏览器已启动")
+            self.open_reset()
+        else:
+            self.status_text.config(text="打开浏览器失败")
+            self.open_reset()
 
     def open_file_manager(self):
         """打开文件管理器的操作逻辑"""
