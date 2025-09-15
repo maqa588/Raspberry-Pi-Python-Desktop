@@ -6,17 +6,13 @@ from PyQt5.QtWebEngineWidgets import QWebEngineView
 from PyQt5.QtCore import QUrl, QSize, Qt
 from PyQt5.QtGui import QFont, QIcon
 
-# 启用高 DPI 缩放，使其在不同分辨率屏幕上显示正常
-QApplication.setAttribute(Qt.AA_EnableHighDpiScaling)
-QApplication.setAttribute(Qt.AA_UseHighDpiPixmaps)
+# 禁用高 DPI 缩放，我们手动设置字体大小以确保兼容性
+QApplication.setAttribute(Qt.AA_EnableHighDpiScaling, False)
+QApplication.setAttribute(Qt.AA_UseHighDpiPixmaps, False)
 
 # --- 优化平台判断逻辑 ---
-# 在明确是 Linux 系统时，才设置特定的嵌入式环境变量
 if sys.platform.startswith('linux'):
     print("在Linux系统上运行，启用嵌入式模式...")
-    # 检查是否为树莓派，并设置特定的环境变量
-    # 这里的设备路径需要根据你的实际设备进行调整
-    # 例如：/dev/input/event0 或其他
     os.environ["QTWEBENGINE_DISABLE_SANDBOX"] = "1"
     os.environ["QT_QPA_PLATFORM"] = "eglfs"
     os.environ["QT_QPA_EGLFS_PHYSICAL_WIDTH"] = "480"
@@ -26,14 +22,11 @@ if sys.platform.startswith('linux'):
     WINDOW_WIDTH = 480
     WINDOW_HEIGHT = 320
 
-# 在 macOS 上运行时，使用默认配置
 elif sys.platform == 'darwin':
     print("在macOS上运行，使用默认配置...")
-    # 确保没有设置任何影响macOS本地渲染的环境变量
     WINDOW_WIDTH = 800
     WINDOW_HEIGHT = 600
     
-# 其他平台使用通用默认配置
 else:
     print("在其他非Linux系统上运行，使用默认配置...")
     WINDOW_WIDTH = 800
@@ -78,46 +71,51 @@ class BrowserWindow(QMainWindow):
         # 按钮布局
         button_layout = QHBoxLayout()
         button_layout.setSpacing(5)
+        
+        # 统一的按钮样式，手动设置字体大小
+        button_style = """
+            QPushButton {
+                background-color: %s;
+                color: white;
+                border: none;
+                border-radius: 5px;
+                padding: 10px;
+                font-size: 20px; 
+            }
+        """
 
         # 返回按钮
-        self.back_button = QPushButton()
+        self.back_button = QPushButton("上一页")
         self.back_button.setIcon(QIcon.fromTheme("go-previous"))
-        self.back_button.setText("上一页")
-        self.back_button.setStyleSheet("background-color: #4CAF50; color: white; border: none; border-radius: 5px; padding: 10px;")
+        self.back_button.setStyleSheet(button_style % "#4CAF50")
         self.back_button.clicked.connect(self.browser.back)
         button_layout.addWidget(self.back_button)
 
         # 前进按钮
-        self.next_button = QPushButton()
+        self.next_button = QPushButton("下一页")
         self.next_button.setIcon(QIcon.fromTheme("go-next"))
-        self.next_button.setText("下一页")
-        self.next_button.setStyleSheet("background-color: #4CAF50; color: white; border: none; border-radius: 5px; padding: 10px;")
+        self.next_button.setStyleSheet(button_style % "#4CAF50")
         self.next_button.clicked.connect(self.browser.forward)
         button_layout.addWidget(self.next_button)
 
         # 刷新按钮
-        self.refresh_button = QPushButton()
+        self.refresh_button = QPushButton("刷新")
         self.refresh_button.setIcon(QIcon.fromTheme("view-refresh"))
-        self.refresh_button.setText("刷新")
-        self.refresh_button.setStyleSheet("background-color: #4CAF50; color: white; border: none; border-radius: 5px; padding: 10px;")
+        self.refresh_button.setStyleSheet(button_style % "#4CAF50")
         self.refresh_button.clicked.connect(self.browser.reload)
         button_layout.addWidget(self.refresh_button)
         
         # 主页按钮
-        self.home_button = QPushButton()
+        self.home_button = QPushButton("主页")
         self.home_button.setIcon(QIcon.fromTheme("go-home"))
-        self.home_button.setText("主页")
-        self.home_button.setStyleSheet("background-color: #2196F3; color: white; border: none; border-radius: 5px; padding: 10px;")
+        self.home_button.setStyleSheet(button_style % "#2196F3")
         self.home_button.clicked.connect(self.go_home)
         button_layout.addWidget(self.home_button)
         
         # 退出按钮
         self.quit_button = QPushButton("退出")
         self.quit_button.setIcon(QIcon.fromTheme("application-exit"))
-        font = QFont()
-        font.setPointSize(14)
-        self.quit_button.setFont(font)
-        self.quit_button.setStyleSheet("background-color: #ff4d4d; color: white; border: none; border-radius: 5px; padding: 10px;")
+        self.quit_button.setStyleSheet(button_style % "#ff4d4d")
         self.quit_button.clicked.connect(self.on_quit)
         button_layout.addWidget(self.quit_button)
 
