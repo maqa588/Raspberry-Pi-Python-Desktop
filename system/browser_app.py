@@ -3,7 +3,8 @@ import sys
 import os
 from PyQt5.QtWidgets import QApplication, QMainWindow, QSizePolicy, QPushButton, QVBoxLayout, QWidget, QHBoxLayout, QLineEdit
 from PyQt5.QtWebEngineWidgets import QWebEngineView
-from PyQt5.QtCore import QUrl, QSize, Qt, QEvent
+# 在这里添加 QObject
+from PyQt5.QtCore import QUrl, QSize, Qt, QEvent, QObject, QPointF 
 from PyQt5.QtGui import QFont, QIcon
 
 # 禁用高 DPI 缩放，我们手动设置字体大小以确保兼容性
