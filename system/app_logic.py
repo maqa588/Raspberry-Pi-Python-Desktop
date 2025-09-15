@@ -2,6 +2,7 @@
 import tkinter as tk
 import threading
 from tkinter import messagebox
+import tkinter.colorchooser as colorchooser
 
 from software.terminal import open_terminal_system
 from software.browser import open_browser_system
@@ -12,6 +13,18 @@ class LogicHandler:
         self.app = app_instance
         self._status_reset_after_id = None
         self.icons = {}
+
+    def edit_background_color(self):
+        # 弹出一个颜色选择对话框
+        color_code = colorchooser.askcolor(title="选择桌面背景颜色")
+        if color_code:
+            # color_code是一个元组 ((R, G, B), '#hex_code')
+            # 我们只需要十六进制的颜色码
+            hex_color = color_code[1]
+            self.app.ui.canvas.config(bg=hex_color)
+            self.app.icon_manager.save_background_color(hex_color) # 将颜色传递给 IconManager
+            self.app.ui.set_status_text(f"背景颜色已更改为: {hex_color}")
+            self.open_reset()
 
     def get_command_for_icon(self, icon_id):
         if icon_id == "terminal":

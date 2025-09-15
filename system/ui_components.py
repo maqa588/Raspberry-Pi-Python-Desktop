@@ -28,8 +28,15 @@ class UIManager:
         file_menu.add_command(label="退出", command=self.master.quit)
         menubar.add_cascade(label="文件", menu=file_menu)
         edit_menu = tk.Menu(menubar, tearoff=0)
-        edit_menu.add_command(label="设置", command=self.app.menu_placeholder_function)
-        menubar.add_cascade(label="编辑", menu=edit_menu)
+        edit_menu.add_command(label="背景颜色", command=self.app.edit_background_color)
+        file_menu.add_separator()
+        edit_menu.add_command(label="WIFI开关", command=self.app.menu_placeholder_function)
+        edit_menu.add_command(label="蓝牙开关", command=self.app.menu_placeholder_function)
+        menubar.add_cascade(label="设置", menu=edit_menu)
+        about_menu = tk.Menu(menubar, tearoff=0)
+        about_menu.add_command(label="系统信息", command=self.app.menu_placeholder_function)
+        about_menu.add_command(label="开发者信息", command=self.app.menu_placeholder_function)
+        menubar.add_cascade(label="关于", menu=about_menu)
         self.master.config(menu=menubar)
 
     def create_desktop_canvas(self):

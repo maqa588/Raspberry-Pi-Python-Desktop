@@ -17,7 +17,6 @@ class DesktopApp:
         self.icon_manager = IconManager(self)
         
         # 加载图标
-        self.icon_manager.load_and_create_icons()
         self.icons = self.icon_manager.icons
     
     # 将核心方法暴露出来，供其他模块调用
@@ -29,6 +28,9 @@ class DesktopApp:
     
     def menu_placeholder_function(self):
         self.logic.menu_placeholder_function()
+    
+    def edit_background_color(self):
+        self.logic.edit_background_color()
 
     def start_pan(self, event):
         self.logic.start_pan(event)
