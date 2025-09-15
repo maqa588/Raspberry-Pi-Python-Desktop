@@ -1,9 +1,17 @@
 # app.py
 import tkinter as tk
+import sys
 from system.ui_components import UIManager
 from system.app_logic import LogicHandler
 from system.icon_manager import IconManager
 from system.config import WINDOW_WIDTH, WINDOW_HEIGHT
+from software.browser_app import create_browser_window
+
+# 检查命令行参数
+if len(sys.argv) > 1 and sys.argv[1] == "browser_only":
+    # 如果参数是 "browser_only"，直接启动浏览器应用
+    create_browser_window()
+    sys.exit()
 
 class DesktopApp:
     def __init__(self, root):
@@ -46,4 +54,4 @@ if __name__ == "__main__":
     except KeyboardInterrupt:
         print("Bye")
     finally:
-        exit()
+        sys.exit()

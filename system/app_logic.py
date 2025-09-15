@@ -47,9 +47,13 @@ class LogicHandler:
 
     def open_browser(self):
         loading_window = self._show_loading_message("执行打开浏览器的操作...")
+        
+        # run_task 函数需要访问 self 来获取 self.app
         def run_task():
-            success = open_browser_system()
+            # 在这里将 app_instance (即 self.app) 传递给函数
+            success = open_browser_system(self.app)
             self.master.after(0, self._update_status_and_destroy_window, success, loading_window, "浏览器")
+        
         threading.Thread(target=run_task).start()
 
     def open_file_manager(self):

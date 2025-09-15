@@ -1,43 +1,31 @@
-# system/browser.py
+# software/browser.py
 import sys
-import os
 import subprocess
+import os
 from tkinter import messagebox
 
-# 从 browser_app.py 导入退出信号
-from software.browser_app import EXIT_SIGNAL
-
-def open_browser_system():
+def open_browser_system(app_instance):
     """
-    启动一个独立的进程来运行浏览器应用，并等待其退出。
-    返回 True 表示成功退出，False 表示失败。
+    根据运行环境（打包或开发）启动浏览器应用。
     """
     try:
-        # 使用 subprocess.run 启动 browser_app.py，并捕获标准输出
-        # capture_output=True 捕获输出
-        # text=True 解码输出为字符串
-        result = subprocess.run(
-            [sys.executable, 'software/browser_app.py'],
-            capture_output=True,
-            text=True,
-            check=True
-        )
-        
-        # 检查子进程的输出是否包含退出信号
-        if EXIT_SIGNAL in result.stdout:
-            print("浏览器已成功退出。")
-            return True
+        # 获取主程序的执行路径
+        main_executable = sys.executable
+
+        if getattr(sys, 'frozen', False):
+            # 如果是 PyInstaller 打包后的环境
+            # 我们只需要传递 "browser_only" 参数给主程序
+            command = [main_executable, "browser_only"]
         else:
-            print("浏览器意外退出，未收到退出信号。")
-            print("子进程输出：", result.stdout)
-            return False
+            # 如果是直接用 Python 运行的开发环境
+            # 我们需要用 python 解释器来运行 browser_app.py
+            command = [main_executable, 'software/browser_app.py']
             
-    except FileNotFoundError:
-        messagebox.showerror("文件未找到", "未能找到 browser_app.py 文件。")
-        return False
-    except subprocess.CalledProcessError as e:
-        messagebox.showerror("启动失败", f"启动浏览器时发生错误：{e.stderr}")
-        return False
+        # 启动子进程，不阻塞主程序
+        subprocess.Popen(command)
+        
+        return True
+
     except Exception as e:
         messagebox.showerror("启动失败", f"启动浏览器时发生未知错误：{e}")
         return False

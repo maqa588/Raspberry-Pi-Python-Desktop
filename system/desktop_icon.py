@@ -3,6 +3,7 @@ import tkinter as tk
 from PIL import Image, ImageTk
 import os
 from system.CreatePlaceholderIcon import create_placeholder_icon
+from system.config import get_resource_path # 导入新函数
 
 class DesktopIcon:
     """管理单个桌面图标的类"""
@@ -18,7 +19,8 @@ class DesktopIcon:
 
         create_placeholder_icon(self.image_path, text=self.id[:3].upper())
 
-        self.pil_image = Image.open(self.image_path).resize((48, 48), Image.Resampling.LANCZOS)
+        full_image_path = get_resource_path(self.image_path)
+        self.pil_image = Image.open(full_image_path).resize((48, 48), Image.Resampling.LANCZOS)
         self.tk_image = ImageTk.PhotoImage(self.pil_image)
 
         self.image_item = self.canvas.create_image(self.x, self.y, image=self.tk_image, anchor=tk.CENTER)

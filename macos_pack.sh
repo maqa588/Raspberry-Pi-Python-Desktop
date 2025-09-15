@@ -1,0 +1,1 @@
+pyinstaller --noconfirm --name "RaspberryPiDesktop" --windowed --add-data "icons:icons" --add-data "system:system" --add-data "software:software" --add-data "system/desktop_layout.json:system" desktop.py
