@@ -18,7 +18,14 @@ if sys.platform.startswith('linux'):
     os.environ["QT_QPA_EGLFS_PHYSICAL_WIDTH"] = "480"
     os.environ["QT_QPA_EGLFS_PHYSICAL_HEIGHT"] = "320"
     os.environ["QT_QPA_EGLFS_INTEGRATION"] = "eglfs_brcm"
-    os.environ["QT_QPA_GENERIC_TOUCH_INPUT"] = "/dev/input/event0:invertx"
+    
+    # 使用 QT_QPA_EVDEV_TOUCHSCREEN_PARAMETERS 进行手动校准
+    # 这段参数将翻转x轴，以适应左右颠倒的问题
+    # 格式为：device=/dev/input/event0:Calibration=minX,maxX,minY,maxY
+    # 对于480x320的屏幕，左右颠倒，我们设置minX=480, maxX=0
+    touchscreen_path = "/dev/input/event0" # 请确保这是你正确的设备路径
+    os.environ["QT_QPA_EVDEV_TOUCHSCREEN_PARAMETERS"] = f"device={touchscreen_path}:Calibration=480,0,0,320"
+    
     WINDOW_WIDTH = 480
     WINDOW_HEIGHT = 320
 
@@ -51,7 +58,7 @@ class BrowserWindow(QMainWindow):
         
         # URL 地址栏
         self.url_bar = QLineEdit()
-        self.url_bar.setFont(QFont("Arial", 20))
+        # 使用CSS设置字体大小（px），确保固定大小
         self.url_bar.setStyleSheet("""
             QLineEdit { 
                 background-color: #f0f0f0; 
@@ -59,6 +66,7 @@ class BrowserWindow(QMainWindow):
                 border-radius: 5px; 
                 border: 1px solid #ccc; 
                 color: black;
+                font-size: 20px; 
             }
         """)
         self.url_bar.setAlignment(Qt.AlignCenter)
@@ -126,7 +134,6 @@ class BrowserWindow(QMainWindow):
         self.url_bar.setText(url.toString())
 
     def on_quit(self):
-        # 打印退出信号，然后通知Qt事件循环结束
         print(EXIT_SIGNAL)
         self.close()
         QApplication.instance().quit()
