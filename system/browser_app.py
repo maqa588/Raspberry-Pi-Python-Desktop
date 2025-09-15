@@ -41,29 +41,7 @@ sys.path.append(project_root)
 
 EXIT_SIGNAL = "BROWSER_CLOSED_SUCCESSFULLY"
 
-class BrowserEventHandler(QObject):
-    def __init__(self, main_window):
-        super().__init__()
-        self.main_window = main_window
-
-    def eventFilter(self, obj, event):
-        if event.type() == QEvent.TouchBegin or \
-           event.type() == QEvent.TouchUpdate or \
-           event.type() == QEvent.TouchEnd:
-            
-            # 只有在Linux上才进行坐标翻转
-            if sys.platform.startswith('linux'):
-                touch_points = event.touchPoints()
-                for i in range(len(touch_points)):
-                    point = touch_points[i]
-                    original_pos = point.pos()
-                    # 翻转X坐标，使其适应左右颠倒的触控
-                    flipped_x = self.main_window.width() - original_pos.x()
-                    point.setPos(QPointF(flipped_x, original_pos.y()))
-                    touch_points[i] = point
-                event.setTouchPoints(touch_points)
-                return QObject.eventFilter(self, obj, event)
-        return QObject.eventFilter(self, obj, event)
+# 已经删除 BrowserEventHandler 类
 
 
 class BrowserWindow(QMainWindow):
@@ -88,7 +66,7 @@ class BrowserWindow(QMainWindow):
                 border-radius: 5px; 
                 border: 1px solid #ccc; 
                 color: black;
-                font-size: 4vw;
+                font-size: 16px;
             }
         """)
         self.url_bar.setAlignment(Qt.AlignCenter)
@@ -98,9 +76,7 @@ class BrowserWindow(QMainWindow):
         self.browser.setUrl(QUrl("https://www.winddine.top"))
         self.browser.setZoomFactor(0.8)
         
-        # 为浏览器安装事件过滤器
-        self.event_handler = BrowserEventHandler(self)
-        self.browser.installEventFilter(self.event_handler)
+        # 已经删除安装事件过滤器的代码
         
         # 按钮布局
         button_layout = QHBoxLayout()
@@ -113,7 +89,7 @@ class BrowserWindow(QMainWindow):
                 border: none;
                 border-radius: 5px;
                 padding: 10px;
-                font-size: 20px; 
+                font-size: 16px; 
             }
         """
 
