@@ -4,7 +4,9 @@ from PIL import Image, ImageTk
 import json
 import os
 import time
+import threading
 
+# 从 system.config 导入所有配置
 from system.config import CONFIG_FILE, CANVAS_WIDTH, CANVAS_HEIGHT, WINDOW_WIDTH, WINDOW_HEIGHT
 from system.terminal import open_terminal_system
 from system.browser import open_browser_system
@@ -76,13 +78,14 @@ class DesktopIcon:
 
 class DesktopApp:
     def __init__(self, root):
-        self.root = root
-        self.root.title("Raspberry Pi Desktop")
-        self.root.geometry(f"{WINDOW_WIDTH}x{WINDOW_HEIGHT}")
+        # 修复：将 root 赋给 self.master，这样 show_loading_message 才能访问
+        self.master = root
+        self.master.title("Raspberry Pi Desktop")
+        self.master.geometry(f"{WINDOW_WIDTH}x{WINDOW_HEIGHT}")
         
         self.icons = {} # 存储所有DesktopIcon实例
 
-        status_frame = tk.Frame(self.root, bd=1, relief="sunken")
+        status_frame = tk.Frame(self.master, bd=1, relief="sunken")
         status_frame.pack(side="bottom", fill="x")
 
         self.status_text = tk.Label(status_frame, text="就绪", anchor="w")
@@ -105,7 +108,7 @@ class DesktopApp:
 
     def create_menu(self):
         """创建顶部菜单栏"""
-        menubar = tk.Menu(self.root)
+        menubar = tk.Menu(self.master)
         
         # --- 文件菜单 ---
         file_menu = tk.Menu(menubar, tearoff=0)
@@ -113,7 +116,7 @@ class DesktopApp:
         file_menu.add_command(label="新文件", command=self.menu_placeholder_function)
         file_menu.add_command(label="打开", command=self.menu_placeholder_function)
         file_menu.add_separator()
-        file_menu.add_command(label="退出", command=self.root.quit)
+        file_menu.add_command(label="退出", command=self.master.quit)
         menubar.add_cascade(label="文件", menu=file_menu)
 
         # --- 编辑菜单 ---
@@ -121,11 +124,11 @@ class DesktopApp:
         edit_menu.add_command(label="设置", command=self.menu_placeholder_function)
         menubar.add_cascade(label="编辑", menu=edit_menu)
 
-        self.root.config(menu=menubar)
+        self.master.config(menu=menubar)
 
     def create_desktop_canvas(self):
         """创建作为桌面的画布"""
-        self.canvas = tk.Canvas(self.root, bg="#3498db", scrollregion=(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT))
+        self.canvas = tk.Canvas(self.master, bg="#3498db", scrollregion=(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT))
         self.canvas.pack(fill=tk.BOTH, expand=True)
 
         # 绑定背景拖动事件
@@ -222,31 +225,51 @@ class DesktopApp:
     def open_reset(self):
         # 如果之前有安排重置状态的任务，就取消
         if hasattr(self, "_status_reset_after_id") and self._status_reset_after_id is not None:
-            self.root.after_cancel(self._status_reset_after_id)
+            self.master.after_cancel(self._status_reset_after_id)
         # 安排 3 秒后重置状态为 "已准备"
-        self._status_reset_after_id = self.root.after(3000, lambda: self.status_text.config(text="就绪"))
+        self._status_reset_after_id = self.master.after(3000, lambda: self.status_text.config(text="就绪"))
 
+    def show_loading_message(self, message):
+        """显示一个Tkinter提示框，并返回其引用"""
+        loading_window = tk.Toplevel(self.master)
+        loading_window.title("请稍候")
+        tk.Label(loading_window, text=message, padx=20, pady=10).pack()
+        loading_window.update() # 强制更新窗口，确保它立即显示
+        return loading_window
+    
     def open_terminal(self):
         """打开终端的操作逻辑（委托给 system/terminal.py）"""
-        print("执行打开终端的操作...")
-        success = open_terminal_system()
-        if success:
-            self.status_text.config(text="终端已启动")
-            self.open_reset()
-        else:
-            self.status_text.config(text="打开终端失败")
-            self.open_reset()
+        loading_window = self.show_loading_message("执行打开终端的操作...")
+        
+        def run_task():
+            success = open_terminal_system()
+            self.master.after(0, loading_window.destroy) # 在主线程中关闭窗口
+            if success:
+                self.status_text.config(text="终端已启动")
+                self.open_reset()
+            else:
+                self.status_text.config(text="打开终端失败")
+                self.open_reset()
+        
+        # 使用线程来运行子进程，避免阻塞Tkinter主线程
+        threading.Thread(target=run_task).start()
 
     def open_browser(self):
         """打开浏览器的操作逻辑（委托给 system/browser.py）"""
-        print("执行打开浏览器的操作...")
-        success = open_browser_system()
-        if success:
-            self.status_text.config(text="浏览器已启动")
-            self.open_reset()
-        else:
-            self.status_text.config(text="打开浏览器失败")
-            self.open_reset()
+        loading_window = self.show_loading_message("执行打开浏览器的操作...")
+        
+        def run_task():
+            success = open_browser_system()
+            self.master.after(0, loading_window.destroy) # 在主线程中关闭窗口
+            if success:
+                self.status_text.config(text="浏览器已启动")
+                self.open_reset()
+            else:
+                self.status_text.config(text="打开浏览器失败")
+                self.open_reset()
+        
+        # 使用线程来运行子进程，避免阻塞Tkinter主线程
+        threading.Thread(target=run_task).start()
 
     def open_file_manager(self):
         """打开文件管理器的操作逻辑"""
