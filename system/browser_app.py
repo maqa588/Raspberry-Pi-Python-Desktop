@@ -6,22 +6,28 @@ from PyQt5.QtWebEngineWidgets import QWebEngineView
 from PyQt5.QtCore import QUrl, QSize
 from PyQt5.QtGui import QFont
 
-# 在导入 PyQt5 模块之前，设置环境变量来禁用 GPU 硬件加速
-# 强制使用软件（CPU）渲染，并优化触屏和屏幕
-os.environ["QTWEBENGINE_DISABLE_SANDBOX"] = "1"
-os.environ["QT_QPA_PLATFORM"] = "eglfs"
-os.environ["QT_QPA_EGLFS_PHYSICAL_WIDTH"] = "480"
-os.environ["QT_QPA_EGLFS_PHYSICAL_HEIGHT"] = "320"
-os.environ["QT_QPA_EGLFS_INTEGRATION"] = "eglfs_brcm"
-# 开启触屏支持
-os.environ["QT_QPA_GENERIC_TOUCH_INPUT"] = "/dev/input/event0" # 检查你的触屏设备文件路径
+# 根据操作系统类型来设置环境变量
+# 这可以防止在 macOS 或 Windows 上运行时因环境变量不兼容而崩溃
+if sys.platform.startswith('linux') and os.path.exists('/dev/input/event0'):
+    print("在Linux（树莓派）上运行，启用嵌入式模式...")
+    os.environ["QTWEBENGINE_DISABLE_SANDBOX"] = "1"
+    os.environ["QT_QPA_PLATFORM"] = "eglfs"
+    os.environ["QT_QPA_EGLFS_PHYSICAL_WIDTH"] = "480"
+    os.environ["QT_QPA_EGLFS_PHYSICAL_HEIGHT"] = "320"
+    os.environ["QT_QPA_EGLFS_INTEGRATION"] = "eglfs_brcm"
+    os.environ["QT_QPA_GENERIC_TOUCH_INPUT"] = "/dev/input/event0"
+    WINDOW_WIDTH = 480
+    WINDOW_HEIGHT = 320
+else:
+    print("在非Linux系统上运行，使用默认配置...")
+    # 在macOS/Windows上运行时，PyQt5会自动选择合适的平台插件，无需手动设置。
+    # 如果系统是macOS，Qt会自动选择cocoa平台插件。
+    # 窗口尺寸使用默认值或你希望在桌面上显示的尺寸
+    WINDOW_WIDTH = 800
+    WINDOW_HEIGHT = 600
 
 project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(project_root)
-
-# 确保配置与物理屏幕匹配
-WINDOW_WIDTH = 480
-WINDOW_HEIGHT = 320
 
 # 定义一个退出信号，便于上级进程识别
 EXIT_SIGNAL = "BROWSER_CLOSED_SUCCESSFULLY"
