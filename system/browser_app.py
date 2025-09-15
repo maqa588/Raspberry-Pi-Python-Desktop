@@ -18,7 +18,8 @@ if sys.platform.startswith('linux'):
     os.environ["QT_QPA_EGLFS_PHYSICAL_WIDTH"] = "480"
     os.environ["QT_QPA_EGLFS_PHYSICAL_HEIGHT"] = "320"
     os.environ["QT_QPA_EGLFS_INTEGRATION"] = "eglfs_brcm"
-    os.environ["QT_QPA_GENERIC_TOUCH_INPUT"] = "/dev/input/event0"
+    # *** 请将这里的设备路径替换为你的实际路径 ***
+    os.environ["QT_QPA_GENERIC_TOUCH_INPUT"] = "/dev/input/event0" 
     WINDOW_WIDTH = 480
     WINDOW_HEIGHT = 320
 
@@ -135,8 +136,7 @@ class BrowserWindow(QMainWindow):
 
     def on_quit(self):
         print(EXIT_SIGNAL)
-        self.close()
-        QApplication.instance().quit()
+        os._exit(0)
 
 def create_browser_window():
     app = QApplication(sys.argv)
