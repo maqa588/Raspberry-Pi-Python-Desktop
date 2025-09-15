@@ -1,6 +1,6 @@
 # Tested Desktop Layout Files
 # 测试中的桌面布局文件
-/desktop_layout.json
+system/desktop_layout.json
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

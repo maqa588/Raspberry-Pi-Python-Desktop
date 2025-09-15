@@ -5,7 +5,7 @@ import subprocess
 from tkinter import messagebox
 
 # 从 browser_app.py 导入退出信号
-from system.browser_app import EXIT_SIGNAL
+from software.browser_app import EXIT_SIGNAL
 
 def open_browser_system():
     """
@@ -17,7 +17,7 @@ def open_browser_system():
         # capture_output=True 捕获输出
         # text=True 解码输出为字符串
         result = subprocess.run(
-            [sys.executable, 'system/browser_app.py'],
+            [sys.executable, 'software/browser_app.py'],
             capture_output=True,
             text=True,
             check=True
