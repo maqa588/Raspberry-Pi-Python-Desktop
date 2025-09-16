@@ -10,7 +10,7 @@ import psutil
 from PIL import Image, ImageTk
 
 class TerminalApp:
-    def __init__(self):
+    def __init__(self, desktop_app):
         """
         初始化终端应用
         """
@@ -18,6 +18,7 @@ class TerminalApp:
         self.xterm_process = None
         self.term_frame = None
         self.menubar = None
+        self.desktop_app = desktop_app
         self.developer_avatar_path = "icons/developer_avatar.png"
     
     def on_quit(self):
