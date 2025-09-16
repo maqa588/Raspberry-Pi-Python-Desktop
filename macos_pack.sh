@@ -5,5 +5,5 @@ pyinstaller --noconfirm \
 --add-data "icons:icons" \
 --add-data "software:software" \
 --add-data "system:system" \
---version-file "system:version.txt" \
+--version-file "version.txt" \
 app.py
