@@ -8,7 +8,7 @@ class IconManager:
     def __init__(self, app):
         self.app = app
         self.icons = {}
-        self.background_color = "#66ccff" # 默认背景颜色
+        self.background_color = "#66ccff"
         self.load_and_create_icons()
         
     def load_and_create_icons(self):
@@ -46,7 +46,7 @@ class IconManager:
             {"id": "files", "text": "文件管理器", "icon": "icons/folder.png", "x": 80, "y": 180},
             {"id": "editor", "text": "文本编辑器", "icon": "icons/editor.png", "x": 180, "y": 180},
         ]
-        
+
     def save_layout(self):
         """将当前所有图标的位置和背景颜色保存到JSON文件"""
         layout_data = {
@@ -63,7 +63,16 @@ class IconManager:
             })
         with open(CONFIG_FILE, 'w') as f:
             json.dump(layout_data, f, indent=4)
+    
+        # 设置状态文本为“布局已保存”
         self.app.ui.set_status_text("布局已保存")
+        
+        # 使用 Tkinter 的 after() 方法，在3秒后调用 set_status_ready 方法
+        self.app.root.after(1000, self.set_status_ready)
+
+    def set_status_ready(self):
+        """设置状态文本为“就绪”的辅助方法"""
+        self.app.ui.set_status_text("就绪")
         
     def update_icon_position(self, icon_id, x, y):
         """当图标移动后，更新其位置并触发保存"""

@@ -18,8 +18,6 @@ if sys.platform.startswith('linux'):
     os.environ["QT_QPA_EGLFS_PHYSICAL_WIDTH"] = "480"
     os.environ["QT_QPA_EGLFS_PHYSICAL_HEIGHT"] = "320"
     os.environ["QT_QPA_EGLFS_INTEGRATION"] = "eglfs_brcm"
-    
-    # 移除之前的触控校准环境变量，我们将在代码中手动处理
     os.environ["QT_QPA_GENERIC_TOUCH_INPUT"] = "/dev/input/event0"
     
     WINDOW_WIDTH = 480

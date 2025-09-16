@@ -16,6 +16,7 @@ if len(sys.argv) > 1 and sys.argv[1] == "browser_only":
 class DesktopApp:
     def __init__(self, root):
         self.master = root
+        self.root = root  # ⬅️ 增加这行，将根窗口对象赋给 self.root
         self.master.title("Raspberry Pi Desktop")
         self.master.geometry(f"{WINDOW_WIDTH}x{WINDOW_HEIGHT}")
         
@@ -39,6 +40,12 @@ class DesktopApp:
     
     def edit_background_color(self):
         self.logic.edit_background_color()
+    
+    def show_system_about(self):
+        self.logic.show_system_about()
+
+    def show_developer_about(self):
+        self.logic.show_developer_about()
 
     def start_pan(self, event):
         self.logic.start_pan(event)
