@@ -2,6 +2,7 @@
 import tkinter as tk
 import time
 from system.config import CANVAS_WIDTH, CANVAS_HEIGHT
+from system.button.about import show_system_about, show_developer_about
 
 class UIManager:
     def __init__(self, master, app_instance):
@@ -34,8 +35,8 @@ class UIManager:
         edit_menu.add_command(label="蓝牙开关", command=self.app.menu_placeholder_function)
         menubar.add_cascade(label="设置", menu=edit_menu)
         about_menu = tk.Menu(menubar, tearoff=0)
-        about_menu.add_command(label="系统信息", command=self.app.show_system_about)
-        about_menu.add_command(label="开发者信息", command=self.app.show_developer_about)
+        about_menu.add_command(label="系统信息", command=lambda: show_system_about(self.master))
+        about_menu.add_command(label="关于开发者", command=lambda: show_developer_about(self.master))
         menubar.add_cascade(label="关于", menu=about_menu)
         self.master.config(menu=menubar)
 

@@ -87,21 +87,30 @@ def show_developer_about(root):
 
     # 尝试加载开发者头像
     try:
-        # 获取当前脚本的绝对路径
-        current_script_dir = os.path.dirname(os.path.abspath(__file__))
-        # 拼接并规范化路径，因为 about.py 也在 system/button/ 目录下
-        # 所以需要向上返回两级目录 (../..)
-        # 项目根目录 = system/button/.. = system/../ = project_root
-        avatar_temp_path = os.path.join(current_script_dir, "..", "..", "icons", "developer_avatar.png")
-        avatar_full_path = os.path.normpath(avatar_temp_path)
+        # 优化路径计算，确保从 system/button/about.py 正确回到项目根目录
+        # current_file_path: /path/to/Raspberry-Pi-Python-Desktop/system/button/about.py
+        current_file_path = os.path.abspath(__file__)
         
+        # current_dir: /path/to/Raspberry-Pi-Python-Desktop/system/button
+        current_dir = os.path.dirname(current_file_path)
+        
+        # system_dir: /path/to/Raspberry-Pi-Python-Desktop/system
+        system_dir = os.path.dirname(current_dir)
+        
+        # project_root_dir: /path/to/Raspberry-Pi-Python-Desktop
+        project_root_dir = os.path.dirname(system_dir)
+        
+        # 拼接图片的最终路径
+        avatar_full_path = os.path.join(project_root_dir, "icons", "developer_avatar.png")
+        
+        # 打印规范化后的路径用于调试
         print(f"正在尝试加载开发者头像，规范化后的完整路径为: {avatar_full_path}")
 
         # 使用 with 语句确保图片正确处理
         with Image.open(avatar_full_path) as original_image:
             original_image.thumbnail((140, 140), Image.LANCZOS)
             
-            # 关键：将图片对象存储在 about_window 上，以防止被垃圾回收
+            # 将图片对象存储在 about_window 上，以防止被垃圾回收
             about_window.developer_photo = ImageTk.PhotoImage(original_image)
             
             # 配置 Label 以显示图片
@@ -111,7 +120,7 @@ def show_developer_about(root):
 
     except FileNotFoundError:
         avatar_label.config(text="无头像", font=("Helvetica", 12))
-        print(f"警告: 找不到开发者头像文件: {avatar_full_path}")
+        print(f"警告: 找不到开发者头像文件: {avatar_full_path}") # 打印完整的失败路径
     except Exception as e:
         avatar_label.config(text="加载头像失败", font=("Helvetica", 10))
         print(f"加载开发者头像时发生错误: {e}")
