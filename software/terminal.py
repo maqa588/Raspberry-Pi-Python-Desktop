@@ -6,7 +6,6 @@ from tkinter import messagebox
 import os
 from system.config import WINDOW_WIDTH, WINDOW_HEIGHT
 import psutil
-from PIL import Image, ImageTk
 
 class TerminalApp:
     def __init__(self, desktop_app):
@@ -18,7 +17,6 @@ class TerminalApp:
         self.term_frame = None
         self.menubar = None
         self.desktop_app = desktop_app
-        self.developer_avatar_path = "icons/developer_avatar.png"
     
     def on_quit(self):
         """处理退出逻辑"""
