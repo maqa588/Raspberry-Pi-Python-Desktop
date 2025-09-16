@@ -138,17 +138,18 @@ class TerminalApp:
 
         # 尝试加载开发者头像
         try:
-            # 改进的路径拼接方式，使用绝对路径确保可靠性
-            # 获取当前脚本的绝对路径，这比只使用 __file__ 更可靠
+            # 获取当前脚本的绝对路径
             current_script_path = os.path.abspath(__file__)
             current_script_dir = os.path.dirname(current_script_path)
             
-            # 使用 os.path.join 智能地拼接路径
-            avatar_full_path = os.path.join(current_script_dir, "..", self.developer_avatar_path)
+            # 使用 os.path.join 拼接路径，然后使用 os.path.normpath 规范化路径
+            avatar_temp_path = os.path.join(current_script_dir, "..", self.developer_avatar_path)
+            avatar_full_path = os.path.normpath(avatar_temp_path)
             
-            # 打印路径用于调试，请检查这个路径是否正确
-            print(f"正在尝试加载开发者头像，完整路径为: {avatar_full_path}")
+            # 打印最终的规范化路径用于调试
+            print(f"正在尝试加载开发者头像，规范化后的完整路径为: {avatar_full_path}")
             
+            # 使用规范化后的路径来打开图片
             original_image = Image.open(avatar_full_path)
             original_image.thumbnail((140, 140), Image.LANCZOS)
             self.developer_photo = ImageTk.PhotoImage(original_image)
