@@ -84,7 +84,11 @@ class FileManagerApp:
         path_entry = ttk.Entry(self.master, textvariable=self.path_var, state='readonly')
         path_entry.pack(fill=tk.X, padx=5, pady=5)
         
-        self.tree = ttk.Treeview(self.master, columns=("name", "modified"), show="headings")
+        # 创建框架来包含Treeview和滚动条
+        tree_frame = tk.Frame(self.master)
+        tree_frame.pack(expand=True, fill=tk.BOTH, padx=5, pady=5)
+        
+        self.tree = ttk.Treeview(tree_frame, columns=("name", "modified"), show="headings")
         self.tree.heading("name", text="名称")
         self.tree.heading("modified", text="修改时间")
 
@@ -96,7 +100,18 @@ class FileManagerApp:
         self.tree.column("name", width=280)             # 名称列
         self.tree.column("modified", width=140)         # 修改时间列
 
-        self.tree.pack(expand=True, fill=tk.BOTH, padx=5, pady=5)
+        # 创建垂直滚动条
+        self.v_scrollbar = ttk.Scrollbar(tree_frame, orient="vertical", command=self.tree.yview)
+        self.tree.configure(yscrollcommand=self.v_scrollbar.set)
+        
+        # 使用grid布局来放置Treeview和滚动条
+        self.tree.grid(row=0, column=0, sticky="nsew")
+        self.v_scrollbar.grid(row=0, column=1, sticky="ns")
+        
+        # 配置grid权重，使Treeview可以扩展
+        tree_frame.grid_rowconfigure(0, weight=1)
+        tree_frame.grid_columnconfigure(0, weight=1)
+        
         self.tree.bind("<Double-1>", self.on_double_click)
 
     def get_file_category(self, filename: str) -> str:
