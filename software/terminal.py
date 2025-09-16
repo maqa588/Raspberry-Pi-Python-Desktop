@@ -10,7 +10,7 @@ import psutil
 from PIL import Image, ImageTk
 
 class TerminalApp:
-    def __init__(self, desktop_app=None):
+    def __init__(self):
         """
         初始化终端应用
         """
@@ -18,8 +18,7 @@ class TerminalApp:
         self.xterm_process = None
         self.term_frame = None
         self.menubar = None
-        script_dir = os.path.dirname(os.path.abspath(__file__))
-        self.developer_avatar_path = os.path.join(script_dir, "..", "icons", "developer_avatar.png")
+        self.developer_avatar_path = "icons/developer_avatar.png"
     
     def on_quit(self):
         """处理退出逻辑"""
