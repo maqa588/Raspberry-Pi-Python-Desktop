@@ -21,7 +21,7 @@ class TerminalApp:
         self.xterm_process = None
         self.term_frame = None
         self.menubar = None
-        self.desktop_app = desktop_app  # 保存主应用引用
+        self.developer_avatar_path = "icons/developer_avatar.png"
     
     def on_quit(self):
         """处理退出逻辑"""
@@ -56,8 +56,8 @@ class TerminalApp:
         file_menu.add_command(label="退出", command=self.on_quit)
         self.menubar.add_cascade(label="文件", menu=file_menu)
         about_menu = tk.Menu(self.menubar, tearoff=0)
-        about_menu.add_command(label="系统信息", command=self.show_system_info)
-        about_menu.add_command(label="关于开发者", command=self.show_developer_info)
+        about_menu.add_command(label="系统信息", command=self.show_system_about)
+        about_menu.add_command(label="关于开发者", command=self.show_developer_about)
         self.menubar.add_cascade(label="关于", menu=about_menu)
         self.root.config(menu=self.menubar)
 
