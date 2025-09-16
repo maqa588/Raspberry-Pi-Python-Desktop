@@ -13,15 +13,13 @@ class TerminalApp:
     def __init__(self, desktop_app=None):
         """
         初始化终端应用
-        
-        Args:
-            desktop_app: 主桌面应用实例，用于调用系统功能
         """
         self.root = None
         self.xterm_process = None
         self.term_frame = None
         self.menubar = None
-        self.developer_avatar_path = "icons/developer_avatar.png"
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        self.developer_avatar_path = os.path.join(script_dir, "..", "icons", "developer_avatar.png")
     
     def on_quit(self):
         """处理退出逻辑"""
