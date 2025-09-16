@@ -128,29 +128,38 @@ class TerminalApp:
         main_frame = tk.Frame(about_window)
         main_frame.pack(fill="both", expand=True, padx=10, pady=10)
 
-        # --- 左侧：开发者头像 ---
-        left_frame = tk.Frame(main_frame, width=150, height=150) # 预设头像区域大小
+         # --- 左侧：开发者头像 ---
+        left_frame = tk.Frame(main_frame, width=150, height=150)
         left_frame.pack(side="left", fill="y", padx=(0, 10))
-        left_frame.pack_propagate(False) # 防止 Frame 随内容大小变化
+        left_frame.pack_propagate(False)
 
         avatar_label = tk.Label(left_frame)
         avatar_label.pack(expand=True)
 
         # 尝试加载开发者头像
         try:
-            # 拼接正确的相对路径
-            current_script_dir = os.path.dirname(__file__) # 获取当前脚本所在目录
+            # 改进的路径拼接方式，使用绝对路径确保可靠性
+            # 获取当前脚本的绝对路径，这比只使用 __file__ 更可靠
+            current_script_path = os.path.abspath(__file__)
+            current_script_dir = os.path.dirname(current_script_path)
+            
+            # 使用 os.path.join 智能地拼接路径
             avatar_full_path = os.path.join(current_script_dir, "..", self.developer_avatar_path)
             
+            # 打印路径用于调试，请检查这个路径是否正确
+            print(f"正在尝试加载开发者头像，完整路径为: {avatar_full_path}")
+            
             original_image = Image.open(avatar_full_path)
-            # 缩放图片以适应 Frame 大小，保持宽高比
-            original_image.thumbnail((140, 140), Image.LANCZOS) # LANCZOS 是高质量缩放滤镜
-            self.developer_photo = ImageTk.PhotoImage(original_image) # 保持引用，防止被垃圾回收
-
+            original_image.thumbnail((140, 140), Image.LANCZOS)
+            self.developer_photo = ImageTk.PhotoImage(original_image)
             avatar_label.config(image=self.developer_photo)
+            
+            print("开发者头像加载成功！")
+            
         except FileNotFoundError:
             avatar_label.config(text="无头像", font=("Helvetica", 12))
             print(f"警告: 找不到开发者头像文件: {self.developer_avatar_path}")
+            print(f"完整路径: {avatar_full_path}")
         except Exception as e:
             avatar_label.config(text="加载头像失败", font=("Helvetica", 10))
             print(f"加载开发者头像时发生错误: {e}")
