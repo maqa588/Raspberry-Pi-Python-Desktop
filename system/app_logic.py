@@ -161,9 +161,13 @@ class LogicHandler:
     def open_terminal(self):
         loading_window = self._show_loading_message("执行打开终端的操作...")
         def run_task():
-            success = open_terminal_system()
+            # 直接在这里创建 TerminalApp 实例并传递引用
+            from software.terminal import TerminalApp
+            terminal_app = TerminalApp(self.app)  # 传递 self.app
+            success = terminal_app.open_terminal_system()
             self.master.after(0, self._update_status_and_destroy_window, success, loading_window, "终端")
         threading.Thread(target=run_task).start()
+
 
     def open_browser(self):
         loading_window = self._show_loading_message("执行打开浏览器的操作...")
