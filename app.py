@@ -5,13 +5,23 @@ from system.ui_components import UIManager
 from system.app_logic import LogicHandler
 from system.icon_manager import IconManager
 from software.browser_app import create_browser_window
+# 新增：导入文件管理器应用
+from software.file_manager_app import FileManagerApp
 from system.config import WINDOW_WIDTH, WINDOW_HEIGHT
 
 # 检查命令行参数
-if len(sys.argv) > 1 and sys.argv[1] == "browser_only":
-    # 如果参数是 "browser_only"，直接启动浏览器应用
-    create_browser_window()
-    sys.exit()
+if len(sys.argv) > 1:
+    if sys.argv[1] == "browser_only":
+        # 如果参数是 "browser_only"，直接启动浏览器应用
+        create_browser_window()
+        sys.exit()
+    
+    elif sys.argv[1] == "file_manager_only":
+        # 如果参数是 "file_manager_only"，直接启动文件管理器
+        fm_root = tk.Tk()
+        FileManagerApp(fm_root)
+        fm_root.mainloop()
+        sys.exit()
 
 class DesktopApp:
     def __init__(self, root):

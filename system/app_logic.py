@@ -11,6 +11,7 @@ import os
 from system.config import WINDOW_WIDTH, WINDOW_HEIGHT
 from software.terminal import open_terminal_system
 from software.browser import open_browser_system
+from software.file_manager import open_file_manager
 
 class LogicHandler:
     def __init__(self, master, app_instance):
@@ -176,8 +177,15 @@ class LogicHandler:
         threading.Thread(target=run_task).start()
 
     def open_file_manager(self):
-        print("执行打开文件管理器的操作...")
-        messagebox.showinfo("操作", "正在打开文件管理器...")
+        loading_window = self._show_loading_message("执行打开文件浏览器的操作...")
+        
+        # run_task 函数需要访问 self 来获取 self.app
+        def run_task():
+            # 在这里将 app_instance (即 self.app) 传递给函数
+            success = open_file_manager(self.app)
+            self.master.after(0, self._update_status_and_destroy_window, success, loading_window, "文件浏览器")
+        
+        threading.Thread(target=run_task).start()
 
     def open_editor(self):
         print("执行打开文件编辑器的操作...")
