@@ -161,13 +161,8 @@ class LogicHandler:
     def open_terminal(self):
         loading_window = self._show_loading_message("执行打开终端的操作...")
         def run_task():
-            try:
-                from software.terminal import open_terminal_system
-                # 传递主应用引用给终端应用
-                success = open_terminal_system(self.app)
-                self.master.after(0, self._update_status_and_destroy_window, success, loading_window, "终端")
-            except Exception as e:
-                self.master.after(0, lambda: self._handle_error(e, loading_window))
+            success = open_terminal_system(self.app)
+            self.master.after(0, self._update_status_and_destroy_window, success, loading_window, "终端")
         threading.Thread(target=run_task).start()
 
     def open_browser(self):

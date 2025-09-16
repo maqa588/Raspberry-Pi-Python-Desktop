@@ -6,6 +6,8 @@ import tkinter as tk
 from tkinter import messagebox
 import os
 from system.config import WINDOW_WIDTH, WINDOW_HEIGHT
+import psutil
+from PIL import Image, ImageTk
 
 class TerminalApp:
     def __init__(self, desktop_app=None):
@@ -66,66 +68,118 @@ class TerminalApp:
         # 强制 Tkinter 立即更新窗口
         self.root.update_idletasks()
 
-    def show_system_info(self):
-        """显示系统信息"""
-        import platform
-        import psutil
-        
+    def show_system_about(self):
         # 定义子窗口尺寸
         win_width, win_height = 350, 200
+        # 计算居中位置
+        x_pos = (WINDOW_WIDTH - win_width) // 2
+        y_pos = (WINDOW_HEIGHT - win_height) // 2
         
-        # 创建一个顶级窗口，使用终端窗口作为父窗口
-        about_window = tk.Toplevel(self.root)
+        # 创建一个顶级（悬浮）窗口
+        about_window = tk.Toplevel(self.master)
         about_window.title("系统信息")
-        about_window.geometry(f"{win_width}x{win_height}")
+        about_window.geometry(f"{win_width}x{win_height}+{x_pos}+{y_pos}")
         about_window.resizable(False, False)
-        about_window.transient(self.root)  # 设置为终端窗口的临时窗口
-        about_window.grab_set()  # 模态对话框
 
-        # 系统信息
-        mem = psutil.virtual_memory()
-        system_info = f"""
-        操作系统: {platform.system()} {platform.release()}
-        架构: {platform.machine()}
-        Python 版本: {platform.python_version()}
-        处理器: {platform.processor()}
-        内存: {mem.total // (1024**3)} GB ({mem.percent}% 使用中)
-        """
-        
-        info_label = tk.Label(about_window, text=system_info, font=("Helvetica", 10), justify="left")
-        info_label.pack(padx=10, pady=10)
-        
+        # 创建一个标签列表，用于实时更新
+        info_labels = []
+        for _ in range(4):
+            label = tk.Label(about_window, text="", font=("Helvetica", 12), justify="left")
+            label.pack(anchor="w", padx=10, pady=5)
+            info_labels.append(label)
+
+        # 添加一个用于关闭窗口的按钮
         close_button = tk.Button(about_window, text="关闭", command=about_window.destroy)
         close_button.pack(pady=10)
 
-    def show_developer_info(self):
-        """显示开发者信息"""
+        # 定义一个更新信息的函数
+        def update_info():
+            # 获取系统架构和发行版信息
+            arch = platform.machine()
+            distro_name = platform.platform(terse=True)
+            
+            # 获取内存和CPU信息
+            mem = psutil.virtual_memory()
+            cpu_usage = psutil.cpu_percent(interval=None) # interval=None表示非阻塞获取
+
+            # 更新标签文本
+            info_labels[0].config(text=f"系统架构: {arch}")
+            info_labels[1].config(text=f"发行版: {distro_name}")
+            info_labels[2].config(text=f"内存占用: {mem.percent}% ({mem.used / (1024**3):.2f} GB)")
+            info_labels[3].config(text=f"CPU 占用: {cpu_usage}%")
+            
+            # 每秒钟调用一次自身以实现实时更新
+            about_window.after(1000, update_info)
+
+        # 首次调用函数以显示信息
+        update_info()
+
+    def show_developer_about(self):
         # 定义子窗口尺寸
-        win_width, win_height = 400, 250
-        
-        # 创建一个顶级窗口
-        about_window = tk.Toplevel(self.root)
+        win_width, win_height = 450, 250
+        # 计算居中位置
+        x_pos = (WINDOW_WIDTH - win_width) // 2
+        y_pos = (WINDOW_HEIGHT - win_height) // 2
+
+        # 创建一个顶级（悬浮）窗口
+        about_window = tk.Toplevel(self.master)
         about_window.title("关于开发者")
-        about_window.geometry(f"{win_width}x{win_height}")
+        about_window.geometry(f"{win_width}x{win_height}+{x_pos}+{y_pos}")
         about_window.resizable(False, False)
-        about_window.transient(self.root)
-        about_window.grab_set()
 
-        developer_info = """
-        开发者信息
+        main_frame = tk.Frame(about_window)
+        main_frame.pack(fill="both", expand=True, padx=10, pady=10)
 
-        姓名: Spencer Maqa
-        版本: 0.1.1-alpha
-        联系方式: maqa588@163.com
-        项目仓库: https://github.com/maqa588/Raspberry-Pi-Python-Desktop/
-        辽宁大学Python程序设计课程 课程设计
-        """
-        
-        info_label = tk.Label(about_window, text=developer_info, font=("Helvetica", 10), justify="left")
-        info_label.pack(padx=10, pady=10)
-        
-        close_button = tk.Button(about_window, text="关闭", command=about_window.destroy)
-        close_button.pack(pady=10)
+        # --- 左侧：开发者头像 ---
+        left_frame = tk.Frame(main_frame, width=150, height=150) # 预设头像区域大小
+        left_frame.pack(side="left", fill="y", padx=(0, 10))
+        left_frame.pack_propagate(False) # 防止 Frame 随内容大小变化
+
+        avatar_label = tk.Label(left_frame)
+        avatar_label.pack(expand=True)
+
+        # 尝试加载开发者头像
+        try:
+            # 拼接正确的相对路径
+            current_script_dir = os.path.dirname(__file__) # 获取当前脚本所在目录
+            avatar_full_path = os.path.join(current_script_dir, "..", self.developer_avatar_path)
+            
+            original_image = Image.open(avatar_full_path)
+            # 缩放图片以适应 Frame 大小，保持宽高比
+            original_image.thumbnail((140, 140), Image.LANCZOS) # LANCZOS 是高质量缩放滤镜
+            self.developer_photo = ImageTk.PhotoImage(original_image) # 保持引用，防止被垃圾回收
+
+            avatar_label.config(image=self.developer_photo)
+        except FileNotFoundError:
+            avatar_label.config(text="无头像", font=("Helvetica", 12))
+            print(f"警告: 找不到开发者头像文件: {self.developer_avatar_path}")
+        except Exception as e:
+            avatar_label.config(text="加载头像失败", font=("Helvetica", 10))
+            print(f"加载开发者头像时发生错误: {e}")
+
+        # --- 右侧：详细信息 ---
+        right_frame = tk.Frame(main_frame)
+        right_frame.pack(side="right", fill="both", expand=True)
+
+        # 开发者信息列表
+        developer_info_list = [
+            "开发者: Spencer Maqa",
+            "项目名称: Raspberry Pi Python Desktop",
+            "版本: 0.1.1-alpha",
+            "联系方式: maqa588@163.com",
+            "项目仓库: https://github.com/maqa588/",
+            "Raspberry-Pi-Python-Desktop/",
+            "辽宁大学Python程序设计课程 课程设计"
+        ]
+
+        # 逐行创建标签显示信息
+        for info_text in developer_info_list:
+            label = tk.Label(right_frame, text=info_text, font=("Helvetica", 10), justify="left", anchor="w")
+            label.pack(fill="x", pady=2)
+
+        # --- 底部：关闭按钮 ---
+        close_button = tk.Button(about_window, text="关闭", command=about_window.destroy, font=("Helvetica", 10))
+        close_button.pack(pady=10) # 底部按钮与主内容之间留出一些间距
     
     def start_xterm(self):
         """启动 xterm 终端"""
