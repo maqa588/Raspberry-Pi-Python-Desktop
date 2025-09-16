@@ -6,6 +6,7 @@ import tkinter as tk
 from tkinter import messagebox
 import os
 from system.config import WINDOW_WIDTH, WINDOW_HEIGHT
+from system.app_logic import LogicHandler
 
 class TerminalApp:
     def __init__(self, desktop_app=None):
@@ -19,7 +20,8 @@ class TerminalApp:
         self.xterm_process = None
         self.term_frame = None
         self.menubar = None
-        self.desktop_app = desktop_app  # 保存主应用引用
+        self.desktop_app = desktop_app
+        self.logic_handler = LogicHandler(self.root, None) if desktop_app else None
     
     def on_quit(self):
         """处理退出逻辑"""
@@ -68,11 +70,34 @@ class TerminalApp:
 
     def show_system_info(self):
         """显示系统信息"""
-        self.desktop_app.show_system_about()
+        if self.desktop_app:
+            # 使用终端窗口作为父窗口
+            self.desktop_app.logic.show_system_about(self.root)
+        elif self.logic_handler:
+            # 使用独立的逻辑处理器
+            self.logic_handler.show_system_about(self.root)
+        else:
+            # 备用实现
+            import platform
+            import psutil
+            system_info = f"""
+                操作系统: {platform.system()} {platform.release()}
+                架构: {platform.machine()}
+                Python 版本: {platform.python_version()}
+            """
+            messagebox.showinfo("系统信息", system_info)
     
     def show_developer_info(self):
         """显示开发者信息"""
-        self.desktop_app.show_developer_about()
+        if self.desktop_app:
+            # 使用终端窗口作为父窗口
+            self.desktop_app.logic.show_developer_about(self.root)
+        elif self.logic_handler:
+            # 使用独立的逻辑处理器
+            self.logic_handler.show_developer_about(self.root)
+        else:
+            # 备用实现
+            messagebox.showinfo("关于开发者", "开发者信息\n\n姓名: Your Name\n版本: 1.0.0")
     
     def start_xterm(self):
         """启动 xterm 终端"""
