@@ -76,7 +76,7 @@ class TerminalApp:
         y_pos = (WINDOW_HEIGHT - win_height) // 2
         
         # 创建一个顶级（悬浮）窗口
-        about_window = tk.Toplevel(self.master)
+        about_window = tk.Toplevel(self.root)
         about_window.title("系统信息")
         about_window.geometry(f"{win_width}x{win_height}+{x_pos}+{y_pos}")
         about_window.resizable(False, False)
@@ -122,7 +122,7 @@ class TerminalApp:
         y_pos = (WINDOW_HEIGHT - win_height) // 2
 
         # 创建一个顶级（悬浮）窗口
-        about_window = tk.Toplevel(self.master)
+        about_window = tk.Toplevel(self.root)
         about_window.title("关于开发者")
         about_window.geometry(f"{win_width}x{win_height}+{x_pos}+{y_pos}")
         about_window.resizable(False, False)
