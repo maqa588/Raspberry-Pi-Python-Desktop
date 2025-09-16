@@ -6,7 +6,6 @@ import tkinter as tk
 from tkinter import messagebox
 import os
 from system.config import WINDOW_WIDTH, WINDOW_HEIGHT
-from system.app_logic import LogicHandler
 
 class TerminalApp:
     def __init__(self, desktop_app=None):
@@ -20,8 +19,7 @@ class TerminalApp:
         self.xterm_process = None
         self.term_frame = None
         self.menubar = None
-        self.desktop_app = desktop_app
-        self.logic_handler = LogicHandler(self.root, None) if desktop_app else None
+        self.desktop_app = desktop_app  # 保存主应用引用
     
     def on_quit(self):
         """处理退出逻辑"""
@@ -70,34 +68,64 @@ class TerminalApp:
 
     def show_system_info(self):
         """显示系统信息"""
-        if self.desktop_app:
-            # 使用终端窗口作为父窗口
-            self.desktop_app.logic.show_system_about(self.root)
-        elif self.logic_handler:
-            # 使用独立的逻辑处理器
-            self.logic_handler.show_system_about(self.root)
-        else:
-            # 备用实现
-            import platform
-            import psutil
-            system_info = f"""
-                操作系统: {platform.system()} {platform.release()}
-                架构: {platform.machine()}
-                Python 版本: {platform.python_version()}
-            """
-            messagebox.showinfo("系统信息", system_info)
-    
+        import platform
+        import psutil
+        
+        # 定义子窗口尺寸
+        win_width, win_height = 350, 200
+        
+        # 创建一个顶级窗口，使用终端窗口作为父窗口
+        about_window = tk.Toplevel(self.root)
+        about_window.title("系统信息")
+        about_window.geometry(f"{win_width}x{win_height}")
+        about_window.resizable(False, False)
+        about_window.transient(self.root)  # 设置为终端窗口的临时窗口
+        about_window.grab_set()  # 模态对话框
+
+        # 系统信息
+        mem = psutil.virtual_memory()
+        system_info = f"""
+        操作系统: {platform.system()} {platform.release()}
+        架构: {platform.machine()}
+        Python 版本: {platform.python_version()}
+        处理器: {platform.processor()}
+        内存: {mem.total // (1024**3)} GB ({mem.percent}% 使用中)
+        """
+        
+        info_label = tk.Label(about_window, text=system_info, font=("Helvetica", 10), justify="left")
+        info_label.pack(padx=10, pady=10)
+        
+        close_button = tk.Button(about_window, text="关闭", command=about_window.destroy)
+        close_button.pack(pady=10)
+
     def show_developer_info(self):
         """显示开发者信息"""
-        if self.desktop_app:
-            # 使用终端窗口作为父窗口
-            self.desktop_app.logic.show_developer_about(self.root)
-        elif self.logic_handler:
-            # 使用独立的逻辑处理器
-            self.logic_handler.show_developer_about(self.root)
-        else:
-            # 备用实现
-            messagebox.showinfo("关于开发者", "开发者信息\n\n姓名: Your Name\n版本: 1.0.0")
+        # 定义子窗口尺寸
+        win_width, win_height = 400, 250
+        
+        # 创建一个顶级窗口
+        about_window = tk.Toplevel(self.root)
+        about_window.title("关于开发者")
+        about_window.geometry(f"{win_width}x{win_height}")
+        about_window.resizable(False, False)
+        about_window.transient(self.root)
+        about_window.grab_set()
+
+        developer_info = """
+        开发者信息
+
+        姓名: Spencer Maqa
+        版本: 0.1.1-alpha
+        联系方式: maqa588@163.com
+        项目仓库: https://github.com/maqa588/Raspberry-Pi-Python-Desktop/
+        辽宁大学Python程序设计课程 课程设计
+        """
+        
+        info_label = tk.Label(about_window, text=developer_info, font=("Helvetica", 10), justify="left")
+        info_label.pack(padx=10, pady=10)
+        
+        close_button = tk.Button(about_window, text="关闭", command=about_window.destroy)
+        close_button.pack(pady=10)
     
     def start_xterm(self):
         """启动 xterm 终端"""
@@ -182,9 +210,9 @@ class TerminalApp:
             return False
 
 # 全局函数，保持向后兼容
-def open_terminal_system():
+def open_terminal_system(desktop_app=None):
     """全局函数，创建 TerminalApp 实例并打开终端"""
-    app = TerminalApp()
+    app = TerminalApp(desktop_app)
     return app.open_terminal_system()
 
 # 如果直接运行此文件，可以测试功能
