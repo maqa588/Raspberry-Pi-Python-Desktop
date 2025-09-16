@@ -129,7 +129,7 @@ class LogicHandler:
         developer_info_list = [
             "开发者: Spencer Maqa",
             "项目名称: Raspberry Pi Python Desktop",
-            "版本: 0.1.0-alpha",
+            "版本: 0.1.1-alpha",
             "联系方式: maqa588@163.com",
             "项目仓库: https://github.com/maqa588/",
             "Raspberry-Pi-Python-Desktop/",

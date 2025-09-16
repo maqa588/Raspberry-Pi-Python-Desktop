@@ -1,11 +1,11 @@
-# app.py
 import tkinter as tk
 import sys
+# 不需要直接导入 appdirs_pack，因为 icon_manager 会处理
 from system.ui_components import UIManager
 from system.app_logic import LogicHandler
 from system.icon_manager import IconManager
-from system.config import WINDOW_WIDTH, WINDOW_HEIGHT
 from software.browser_app import create_browser_window
+from system.config import WINDOW_WIDTH, WINDOW_HEIGHT
 
 # 检查命令行参数
 if len(sys.argv) > 1 and sys.argv[1] == "browser_only":
@@ -16,23 +16,37 @@ if len(sys.argv) > 1 and sys.argv[1] == "browser_only":
 class DesktopApp:
     def __init__(self, root):
         self.master = root
-        self.root = root  # ⬅️ 增加这行，将根窗口对象赋给 self.root
+        self.root = root
         self.master.title("Raspberry Pi Desktop")
         self.master.geometry(f"{WINDOW_WIDTH}x{WINDOW_HEIGHT}")
         
         # 初始化功能模块
+        # 注意：这里需要先初始化 UIManager，因为它会被 IconManager 引用
         self.ui = UIManager(self.master, self)
         self.logic = LogicHandler(self.master, self)
+        
+        # 1. 初始化 IconManager，它会自动加载并创建图标
         self.icon_manager = IconManager(self)
         
-        # 加载图标
+        # 2. 从 IconManager 实例中获取图标，供其他模块使用
         self.icons = self.icon_manager.icons
+
+        # 3. 增加退出事件处理函数，确保程序关闭时保存布局
+        self.master.protocol("WM_DELETE_WINDOW", self.on_close)
     
+    def on_close(self):
+        """在程序退出时调用，确保数据被保存。"""
+        print("正在退出应用程序...")
+        # 调用 IconManager 的 save_layout 方法
+        self.icon_manager.save_layout()
+        self.master.destroy()
+        
     # 将核心方法暴露出来，供其他模块调用
     def get_command_for_icon(self, icon_id):
         return self.logic.get_command_for_icon(icon_id)
         
     def update_icon_position(self, icon_id, x, y):
+        # 这个方法现在只负责调用 IconManager 中的相应方法
         self.icon_manager.update_icon_position(icon_id, x, y)
     
     def menu_placeholder_function(self):

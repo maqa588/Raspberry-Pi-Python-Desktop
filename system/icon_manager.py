@@ -1,7 +1,8 @@
 # system/icon_manager.py
 import json
 import os
-from system.config import CONFIG_FILE
+# 从新的模块导入加载和保存函数
+from system.appdirs_pack import load_user_config, save_user_config
 from system.desktop_icon import DesktopIcon
 
 class IconManager:
@@ -12,27 +13,15 @@ class IconManager:
         self.load_and_create_icons()
         
     def load_and_create_icons(self):
-        """从JSON文件加载图标布局和背景颜色"""
-        layout_data = {}
-        if os.path.exists(CONFIG_FILE):
-            try:
-                with open(CONFIG_FILE, 'r') as f:
-                    content = f.read()
-                    if content:
-                        layout_data = json.loads(content)
-                    else:
-                        print("配置文件为空，将使用默认布局。")
-            except json.JSONDecodeError:
-                print("配置文件格式错误，将使用默认布局。")
-        
-        if not isinstance(layout_data, dict):
-            layout_data = {}
+        """从用户或默认配置文件加载图标布局和背景颜色"""
+        # 调用 load_user_config 来处理文件加载
+        layout_data = load_user_config("desktop_layout.json")
 
         # 加载背景颜色
         self.background_color = layout_data.get('background_color', "#3498db")
         self.app.ui.canvas.config(bg=self.background_color)
         
-        # 加载图标布局
+        # 加载图标布局，如果配置文件中没有则使用默认布局
         icon_layout = layout_data.get('icons', self._get_default_layout())
         for icon_data in icon_layout:
             icon_instance = DesktopIcon(self.app, self.app.ui.canvas, icon_data)
@@ -48,7 +37,7 @@ class IconManager:
         ]
 
     def save_layout(self):
-        """将当前所有图标的位置和背景颜色保存到JSON文件"""
+        """将当前所有图标的位置和背景颜色保存到用户配置文件"""
         layout_data = {
             "background_color": self.background_color,
             "icons": []
@@ -61,8 +50,9 @@ class IconManager:
                 "x": icon_instance.x,
                 "y": icon_instance.y
             })
-        with open(CONFIG_FILE, 'w') as f:
-            json.dump(layout_data, f, indent=4)
+        
+        # 调用 save_user_config 来处理文件保存
+        save_user_config(layout_data, "desktop_layout.json")
     
         # 设置状态文本为“布局已保存”
         self.app.ui.set_status_text("布局已保存")
