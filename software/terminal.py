@@ -138,23 +138,22 @@ class TerminalApp:
 
         # 尝试加载开发者头像
         try:
-            # 获取当前脚本的绝对路径
+            # 拼接并规范化路径
             current_script_path = os.path.abspath(__file__)
             current_script_dir = os.path.dirname(current_script_path)
-            
-            # 使用 os.path.join 拼接路径，然后使用 os.path.normpath 规范化路径
             avatar_temp_path = os.path.join(current_script_dir, "..", self.developer_avatar_path)
             avatar_full_path = os.path.normpath(avatar_temp_path)
-            
-            # 打印最终的规范化路径用于调试
+    
             print(f"正在尝试加载开发者头像，规范化后的完整路径为: {avatar_full_path}")
-            
-            # 使用规范化后的路径来打开图片
+
             original_image = Image.open(avatar_full_path)
             original_image.thumbnail((140, 140), Image.LANCZOS)
+            # 将图片对象绑定到实例变量
             self.developer_photo = ImageTk.PhotoImage(original_image)
+            # 关键修改：将图片对象也绑定到 Label 控件上
+            avatar_label.image = self.developer_photo  # 创建一个对图片的额外引用
+            # 配置 Label 以显示图片
             avatar_label.config(image=self.developer_photo)
-            
             print("开发者头像加载成功！")
             
         except FileNotFoundError:
