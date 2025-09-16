@@ -8,6 +8,7 @@ import psutil
 from PIL import Image, ImageTk
 import os
 
+from system.config import WINDOW_WIDTH, WINDOW_HEIGHT
 from software.terminal import open_terminal_system
 from software.browser import open_browser_system
 
@@ -32,10 +33,16 @@ class LogicHandler:
             self.open_reset()
 
     def show_system_about(self):
+        # 定义子窗口尺寸
+        win_width, win_height = 350, 200
+        # 计算居中位置
+        x_pos = (WINDOW_WIDTH - win_width) // 2
+        y_pos = (WINDOW_HEIGHT - win_height) // 2
+        
         # 创建一个顶级（悬浮）窗口
         about_window = tk.Toplevel(self.master)
         about_window.title("系统信息")
-        about_window.geometry("350x200")
+        about_window.geometry(f"{win_width}x{win_height}+{x_pos}+{y_pos}")
         about_window.resizable(False, False)
 
         # 创建一个标签列表，用于实时更新
@@ -72,13 +79,18 @@ class LogicHandler:
         update_info()
 
     def show_developer_about(self):
+        # 定义子窗口尺寸
+        win_width, win_height = 450, 250
+        # 计算居中位置
+        x_pos = (WINDOW_WIDTH - win_width) // 2
+        y_pos = (WINDOW_HEIGHT - win_height) // 2
+
         # 创建一个顶级（悬浮）窗口
         about_window = tk.Toplevel(self.master)
         about_window.title("关于开发者")
-        about_window.geometry("450x250") # 调整窗口大小以适应内容
+        about_window.geometry(f"{win_width}x{win_height}+{x_pos}+{y_pos}")
         about_window.resizable(False, False)
 
-        # 创建一个主 Frame 来包含左右两部分
         main_frame = tk.Frame(about_window)
         main_frame.pack(fill="both", expand=True, padx=10, pady=10)
 
