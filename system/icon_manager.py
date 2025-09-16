@@ -8,7 +8,7 @@ class IconManager:
     def __init__(self, app):
         self.app = app
         self.icons = {}
-        self.background_color = "#3498db" # 默认背景颜色
+        self.background_color = "#66ccff" # 默认背景颜色
         self.load_and_create_icons()
         
     def load_and_create_icons(self):
