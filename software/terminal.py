@@ -127,7 +127,7 @@ class TerminalApp:
         main_frame = tk.Frame(about_window)
         main_frame.pack(fill="both", expand=True, padx=10, pady=10)
 
-         # --- 左侧：开发者头像 ---
+        # --- 左侧：开发者头像 ---
         left_frame = tk.Frame(main_frame, width=150, height=150)
         left_frame.pack(side="left", fill="y", padx=(0, 10))
         left_frame.pack_propagate(False)
@@ -135,42 +135,37 @@ class TerminalApp:
         avatar_label = tk.Label(left_frame)
         avatar_label.pack(expand=True)
 
-        # 封装图片加载逻辑到一个单独的函数中
-        def load_avatar_image():
-            try:
-                # 拼接并规范化路径，这部分你已经做得很好了
-                current_script_path = os.path.abspath(__file__)
-                current_script_dir = os.path.dirname(current_script_path)
-                avatar_temp_path = os.path.join(current_script_dir, "..", self.developer_avatar_path)
-                avatar_full_path = os.path.normpath(avatar_temp_path)
-                
-                print(f"正在尝试加载开发者头像，规范化后的完整路径为: {avatar_full_path}")
-                
-                original_image = Image.open(avatar_full_path)
+        try:
+            # 拼接并规范化路径
+            current_script_path = os.path.abspath(__file__)
+            current_script_dir = os.path.dirname(current_script_path)
+            avatar_temp_path = os.path.join(current_script_dir, "..", self.developer_avatar_path)
+            avatar_full_path = os.path.normpath(avatar_temp_path)
+            
+            print(f"正在尝试加载开发者头像，规范化后的完整路径为: {avatar_full_path}")
+
+            # 关键修改：使用 with 语句确保图片对象被正确处理
+            with Image.open(avatar_full_path) as original_image:
                 original_image.thumbnail((140, 140), Image.LANCZOS)
                 
-                # 绑定到实例变量
+                # 将图片对象绑定到实例变量
                 self.developer_photo = ImageTk.PhotoImage(original_image)
                 
-                # 绑定到标签，双重保险
+                # 将图片对象也绑定到 Label 控件上，创建双重引用
                 avatar_label.image = self.developer_photo
                 
-                # 配置标签
+                # 配置 Label 以显示图片
                 avatar_label.config(image=self.developer_photo)
                 
-                print("开发者头像加载成功！")
-
-            except FileNotFoundError:
-                avatar_label.config(text="无头像", font=("Helvetica", 12))
-                print(f"警告: 找不到开发者头像文件: {self.developer_avatar_path}")
-                print(f"完整路径: {avatar_full_path}")
-            except Exception as e:
-                avatar_label.config(text="加载头像失败", font=("Helvetica", 10))
-                print(f"加载开发者头像时发生错误: {e}")
-
-        # 关键修改：使用 after 方法延迟执行图片加载函数
-        # 延迟10毫秒，给 tkinter 足够的时间来创建和显示窗口
-        about_window.after(10, load_avatar_image)
+            print("开发者头像加载成功！")
+            
+        except FileNotFoundError:
+            avatar_label.config(text="无头像", font=("Helvetica", 12))
+            print(f"警告: 找不到开发者头像文件: {self.developer_avatar_path}")
+            print(f"完整路径: {avatar_full_path}")
+        except Exception as e:
+            avatar_label.config(text="加载头像失败", font=("Helvetica", 10))
+            print(f"加载开发者头像时发生错误: {e}")
 
         # --- 右侧：详细信息 ---
         right_frame = tk.Frame(main_frame)
