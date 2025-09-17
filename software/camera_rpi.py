@@ -1,9 +1,11 @@
 import os
 import sys
 
+# 动态获取项目根目录并添加到 sys.path
 current_file_path = os.path.abspath(__file__)
 project_root = os.path.dirname(os.path.dirname(current_file_path))
-sys.path.insert(0, project_root)
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
 
 import signal
 import datetime
@@ -15,7 +17,6 @@ from PIL import Image, ImageTk
 import numpy as np
 
 from system.button.about import show_system_about, show_developer_about
-from system.config import WINDOW_HEIGHT, WINDOW_WIDTH
 
 # --- 相机应用主类 ---
 class CameraApp:
@@ -55,8 +56,9 @@ class CameraApp:
 
     def init_ui(self):
         # 创建主框架来容纳相机预览和按钮
+        # 修复了宽高的字面量错误
         main_frame = tk.Frame(self.master, bg="grey")
-        main_frame.place(x=0, y=30, width={WINDOW_WIDTH}, height={WINDOW_HEIGHT}) # 占据菜单栏以下的所有空间
+        main_frame.place(x=0, y=30, width=480, height=290)
 
         # 左侧相机预览框架
         left_frame = tk.Frame(main_frame, width=387, height=290, bg='black')
@@ -82,6 +84,8 @@ class CameraApp:
         self.master.protocol("WM_DELETE_WINDOW", self.confirm_exit)
 
     def update_preview(self):
+        # 简化图像处理，直接使用 Picamera2 返回的 NumPy 数组
+        # 移除不必要的 RGB565 转换
         frame = self.picam2.capture_array()
         image = Image.fromarray(frame).resize((387, 290))
         
@@ -106,10 +110,10 @@ class CameraApp:
             self.picam2.stop()
             self.master.destroy()
 
-# 捕获 Ctrl+C 信号，实现优雅退出
-def sigint_handler(sig, frame):
+# 如果你在主程序中通过 subprocess 启动这个脚本，
+# 确保主程序传递的命令行参数是 "camera_rpi_only"
+# 这样就可以在 app.py 里正确地分流到这个脚本了。
+if __name__ == "__main__":
     root = tk.Tk()
-    app = root.winfo_children()[0] if root.winfo_children() else None
-    if isinstance(app, CameraApp):
-        app.picam2.stop()
-    root.quit()
+    app = CameraApp(root)
+    root.mainloop()
