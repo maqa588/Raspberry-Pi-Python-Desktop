@@ -56,8 +56,8 @@ class TerminalApp:
         about_menu.add_command(label="关于开发者", command=lambda: show_developer_about(self.root))
         self.menubar.add_cascade(label="关于", menu=about_menu)
         edit_menu = tk.Menu(self.menubar, tearoff=0)
-        edit_menu.add_command(label="WIFI开关", command=lambda: show_wifi_configure(self.master))
-        edit_menu.add_command(label="蓝牙开关", command=lambda: show_bluetooth_configure(self.master))
+        edit_menu.add_command(label="WIFI开关", command=lambda: show_wifi_configure(self.root))
+        edit_menu.add_command(label="蓝牙开关", command=lambda: show_bluetooth_configure(self.root))
         self.menubar.add_cascade(label="设置", menu=edit_menu)
         self.root.config(menu=self.menubar)
 
