@@ -15,7 +15,7 @@ def get_bluetooth_status():
     if system == "Linux":
         try:
             # 使用 bluetoothctl 获取蓝牙状态
-            cmd = "pkexec bluetoothctl show"
+            cmd = "bluetoothctl show"
             result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
             if "Powered: yes" in result.stdout:
                 return True
@@ -39,9 +39,9 @@ def toggle_bluetooth_status(current_status):
     system = platform.system()
     if system == "Linux":
         if current_status:
-            cmd = "pkexec bluetoothctl power off"
+            cmd = "bluetoothctl power off"
         else:
-            cmd = "pkexec bluetoothctl power on"
+            cmd = "bluetoothctl power on"
         try:
             # 使用Popen来避免UI卡死，并在新线程中执行
             threading.Thread(target=lambda: subprocess.run(cmd, shell=True)).start()

@@ -15,7 +15,7 @@ def get_wifi_status():
     if system == "Linux":
         try:
             # 尝试通过nmcli获取WLAN设备状态
-            cmd = "pkexec nmcli -t -f DEVICE,STATE,TYPE dev status | grep 'wlan0'"
+            cmd = "nmcli -t -f DEVICE,STATE,TYPE dev status | grep 'wlan0'"
             result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
             if "connected" in result.stdout:
                 return True
@@ -39,9 +39,9 @@ def toggle_wifi_status(current_status):
     system = platform.system()
     if system == "Linux":
         if current_status:
-            cmd = "pkexec nmcli radio wifi off"
+            cmd = "nmcli radio wifi off"
         else:
-            cmd = "pkexec nmcli radio wifi on"
+            cmd = "nmcli radio wifi on"
         try:
             # 使用Popen来避免UI卡死，并在新线程中执行
             threading.Thread(target=lambda: subprocess.run(cmd, shell=True)).start()
