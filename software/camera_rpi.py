@@ -1,5 +1,4 @@
 import os
-import sys
 import signal
 import datetime
 import subprocess
@@ -8,11 +7,6 @@ from tkinter import messagebox
 from picamera2 import Picamera2
 from PIL import Image, ImageTk
 import numpy as np
-
-current_dir = os.path.dirname(os.path.abspath(__file__))
-project_root = os.path.abspath(os.path.join(current_dir, '..', '..'))
-if project_root not in sys.path:
-    sys.path.append(project_root)
 
 from system.button.about import show_system_about, show_developer_about
 from system.config import WINDOW_HEIGHT, WINDOW_WIDTH

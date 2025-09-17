@@ -13,33 +13,37 @@ def open_camera_system(app_instance):
     
     try:
         if system == "Darwin":  # macOS
-            # 在macOS上使用open命令启动Photo Booth
             command = ['open', '-a', 'Photo Booth']
             subprocess.Popen(command)
             return True
         
         elif system == "Windows":
-            # 在Windows上使用start命令启动相机应用
             command = ['start', 'microsoft.windows.camera:']
             subprocess.Popen(command, shell=True)
             return True
             
         elif system == "Linux":
-            # 检查是否安装了picamera2库
             try:
                 import picamera2
                 
                 # 获取主程序的执行路径
                 main_executable = sys.executable
+                
+                # 动态获取项目根目录
+                # os.path.dirname(__file__) 是当前文件所在目录 (software/)
+                # os.path.dirname(...) 再向上找一级就是项目根目录
+                project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
                 if getattr(sys, 'frozen', False):
-                    # PyInstaller打包后的环境，直接传递参数
                     command = [main_executable, "camera_rpi_only"]
+                    # 打包环境通常不需要设置 cwd
+                    subprocess.Popen(command)
                 else:
                     # 开发环境，用python解释器运行
                     command = [main_executable, 'software/camera_rpi.py']
+                    # 在这里设置 cwd 参数，确保子进程在项目根目录运行
+                    subprocess.Popen(command, cwd=project_root)
                     
-                subprocess.Popen(command)
                 return True
                 
             except ImportError:
@@ -47,7 +51,6 @@ def open_camera_system(app_instance):
                 return False
         
         else:
-            # 对于其他不支持的系统
             messagebox.showinfo("提示", f"当前操作系统 '{system}' 暂不支持相机功能。")
             return False
 
