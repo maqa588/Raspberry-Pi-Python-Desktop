@@ -1,4 +1,10 @@
 import os
+import sys
+
+current_file_path = os.path.abspath(__file__)
+project_root = os.path.dirname(os.path.dirname(current_file_path))
+sys.path.insert(0, project_root)
+
 import signal
 import datetime
 import subprocess
