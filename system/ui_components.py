@@ -1,8 +1,11 @@
 # system/ui_components.py
 import tkinter as tk
 import time
+
 from system.config import CANVAS_WIDTH, CANVAS_HEIGHT
 from system.button.about import show_system_about, show_developer_about
+from system.wireless.wifi import show_wifi_configure
+from system.wireless.bluetooth import show_bluetooth_configure
 
 class UIManager:
     def __init__(self, master, app_instance):
@@ -31,8 +34,8 @@ class UIManager:
         edit_menu = tk.Menu(menubar, tearoff=0)
         edit_menu.add_command(label="背景颜色", command=self.app.edit_background_color)
         file_menu.add_separator()
-        edit_menu.add_command(label="WIFI开关", command=self.app.menu_placeholder_function)
-        edit_menu.add_command(label="蓝牙开关", command=self.app.menu_placeholder_function)
+        edit_menu.add_command(label="WIFI开关", command=lambda: show_wifi_configure(self.master))
+        edit_menu.add_command(label="蓝牙开关", command=lambda: show_bluetooth_configure(self.master))
         menubar.add_cascade(label="设置", menu=edit_menu)
         about_menu = tk.Menu(menubar, tearoff=0)
         about_menu.add_command(label="系统信息", command=lambda: show_system_about(self.master))
