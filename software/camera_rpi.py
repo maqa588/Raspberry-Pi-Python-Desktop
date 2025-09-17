@@ -7,15 +7,14 @@ project_root = os.path.dirname(os.path.dirname(current_file_path))
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
-import signal
 import datetime
-import subprocess
 import tkinter as tk
 from tkinter import messagebox
 from picamera2 import Picamera2
 from PIL import Image, ImageTk
 import numpy as np
 
+# 从正确的路径导入模块
 from system.button.about import show_system_about, show_developer_about
 
 # --- 相机应用主类 ---
@@ -56,13 +55,15 @@ class CameraApp:
 
     def init_ui(self):
         # 创建主框架来容纳相机预览和按钮
-        # 修复了宽高的字面量错误
-        main_frame = tk.Frame(self.master, bg="grey")
-        main_frame.place(x=0, y=30, width=480, height=290)
+        # 移除 main_frame 上的 pady，并使用 fill=tk.BOTH, expand=True 确保其填充所有可用空间
+        # 注意：菜单栏的高度通常由 Tkinter 自动管理，这里假设它占用 30px
+        main_frame = tk.Frame(self.master, bg="grey") # 暂时用灰色背景查看其边界
+        main_frame.pack(side=tk.TOP, fill=tk.BOTH, expand=True, pady=0, padx=0) # 关键：移除默认的pady
 
         # 左侧相机预览框架
         left_frame = tk.Frame(main_frame, width=387, height=290, bg='black')
-        left_frame.pack(side=tk.LEFT, padx=(0, 10), pady=0)
+        # 确保 left_frame 的 pack 参数没有额外的 pady
+        left_frame.pack(side=tk.LEFT, padx=(0, 10), pady=0) # 关键：移除 pady
         left_frame.pack_propagate(False) # 防止子组件调整框架大小
 
         # 摄像头预览显示区域
@@ -71,7 +72,8 @@ class CameraApp:
 
         # 右侧控制按钮框架
         right_frame = tk.Frame(main_frame)
-        right_frame.pack(side=tk.RIGHT, fill=tk.Y, padx=(0, 5), pady=0)
+        # 确保 right_frame 的 pack 参数没有额外的 pady
+        right_frame.pack(side=tk.RIGHT, fill=tk.Y, padx=(0, 5), pady=0) # 关键：移除 pady
 
         # 按钮布局（竖向放置）
         btn_photo = tk.Button(right_frame, text="拍照", command=self.take_photo, width=12)
@@ -84,8 +86,6 @@ class CameraApp:
         self.master.protocol("WM_DELETE_WINDOW", self.confirm_exit)
 
     def update_preview(self):
-        # 简化图像处理，直接使用 Picamera2 返回的 NumPy 数组
-        # 移除不必要的 RGB565 转换
         frame = self.picam2.capture_array()
         image = Image.fromarray(frame).resize((387, 290))
         
