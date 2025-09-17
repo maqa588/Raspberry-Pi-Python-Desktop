@@ -85,7 +85,7 @@ def toggle_wifi_status_and_update(label, button, root):
     if current_status is not None:
         toggle_wifi_status(current_status)
     # 延迟几秒后更新UI，给系统切换状态的时间
-    root.after(3000, lambda: update_ui(label, button, root))
+    root.after(500, lambda: update_ui(label, button, root))
 
 def show_wifi_configure(root):
     """
