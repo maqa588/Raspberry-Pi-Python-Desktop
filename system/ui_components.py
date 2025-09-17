@@ -33,6 +33,7 @@ class UIManager:
         menubar.add_cascade(label="文件", menu=file_menu)
         edit_menu = tk.Menu(menubar, tearoff=0)
         edit_menu.add_command(label="背景颜色", command=self.app.edit_background_color)
+        edit_menu.add_command(label="图标文字颜色", command=self.app.edit_label_color)
         file_menu.add_separator()
         edit_menu.add_command(label="WIFI开关", command=lambda: show_wifi_configure(self.master))
         edit_menu.add_command(label="蓝牙开关", command=lambda: show_bluetooth_configure(self.master))

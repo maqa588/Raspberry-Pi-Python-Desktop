@@ -1,23 +1,19 @@
 import tkinter as tk
 import sys
-# 不需要直接导入 appdirs_pack，因为 icon_manager 会处理
 from system.ui_components import UIManager
 from system.app_logic import LogicHandler
 from system.icon_manager import IconManager
 from software.browser_app import create_browser_window
-# 新增：导入文件管理器应用
 from software.file_manager_app import FileManagerApp
 from system.config import WINDOW_WIDTH, WINDOW_HEIGHT
 
 # 检查命令行参数
 if len(sys.argv) > 1:
     if sys.argv[1] == "browser_only":
-        # 如果参数是 "browser_only"，直接启动浏览器应用
         create_browser_window()
         sys.exit()
     
     elif sys.argv[1] == "file_manager_only":
-        # 如果参数是 "file_manager_only"，直接启动文件管理器
         fm_root = tk.Tk()
         FileManagerApp(fm_root)
         fm_root.mainloop()
@@ -30,33 +26,37 @@ class DesktopApp:
         self.master.title("Raspberry Pi Desktop")
         self.master.geometry(f"{WINDOW_WIDTH}x{WINDOW_HEIGHT}")
         
-        # 初始化功能模块
-        # 注意：这里需要先初始化 UIManager，因为它会被 IconManager 引用
+        # 1. 初始化 UIManager，它提供了画布和 UI 元素。
         self.ui = UIManager(self.master, self)
-        self.logic = LogicHandler(self.master, self)
         
-        # 1. 初始化 IconManager，它会自动加载并创建图标
+        # 2. 初始化 LogicHandler，它包含了图标的双击命令逻辑。
+        #    LogicHandler 现在需要 IconManager 和 UIManager 的引用。
+        self.logic = LogicHandler(self, None, self.ui) # 先用 None 占位，稍后更新
+        
+        # 3. 初始化 IconManager，它依赖 UIManager 和 LogicHandler。
         self.icon_manager = IconManager(self)
         
-        # 2. 从 IconManager 实例中获取图标，供其他模块使用
+        # 4. 更新 LogicHandler，将 IconManager 引用传递给它。
+        self.logic.icon_manager = self.icon_manager
+        
+        # 5. 从 IconManager 实例中获取图标，供其他模块使用。
         self.icons = self.icon_manager.icons
 
-        # 3. 增加退出事件处理函数，确保程序关闭时保存布局
+        # 6. 增加退出事件处理函数，确保程序关闭时保存布局。
         self.master.protocol("WM_DELETE_WINDOW", self.on_close)
     
     def on_close(self):
         """在程序退出时调用，确保数据被保存。"""
         print("正在退出应用程序...")
-        # 调用 IconManager 的 save_layout 方法
         self.icon_manager.save_layout()
         self.master.destroy()
         
     # 将核心方法暴露出来，供其他模块调用
     def get_command_for_icon(self, icon_id):
+        # 这个方法现在可以安全地访问 self.logic。
         return self.logic.get_command_for_icon(icon_id)
         
     def update_icon_position(self, icon_id, x, y):
-        # 这个方法现在只负责调用 IconManager 中的相应方法
         self.icon_manager.update_icon_position(icon_id, x, y)
     
     def menu_placeholder_function(self):
@@ -64,6 +64,9 @@ class DesktopApp:
     
     def edit_background_color(self):
         self.logic.edit_background_color()
+
+    def edit_label_color(self):
+        self.logic.edit_label_color()
     
     def show_system_about(self):
         self.logic.show_system_about()

@@ -14,23 +14,37 @@ from software.browser import open_browser_system
 from software.file_manager import open_file_manager
 
 class LogicHandler:
-    def __init__(self, master, app_instance):
-        self.master = master
+    # 构造函数现在接收 app_instance, icon_manager 和 ui 的引用
+    def __init__(self, app_instance, icon_manager, ui):
         self.app = app_instance
+        self.icon_manager = icon_manager
+        self.ui = ui
+        self.master = app_instance.root # 假设 root 是主窗口
         self._status_reset_after_id = None
-        self.icons = {}
+        self.icons = {} # 这个icons属性可能不再需要，因为可以通过self.icon_manager访问
         self.developer_avatar_path = "icons/developer_avatar.png"
 
     def edit_background_color(self):
-        # 弹出一个颜色选择对话框
+        """
+        弹出颜色选择对话框，更改桌面背景的颜色
+        """
         color_code = colorchooser.askcolor(title="选择桌面背景颜色")
         if color_code:
-            # color_code是一个元组 ((R, G, B), '#hex_code')
-            # 我们只需要十六进制的颜色码
             hex_color = color_code[1]
-            self.app.ui.canvas.config(bg=hex_color)
-            self.app.icon_manager.save_background_color(hex_color) # 将颜色传递给 IconManager
-            self.app.ui.set_status_text(f"背景颜色已更改为: {hex_color}")
+            self.ui.canvas.config(bg=hex_color)
+            self.icon_manager.save_background_color(hex_color)
+            self.ui.set_status_text(f"背景颜色已更改为: {hex_color}")
+            self.open_reset()
+    
+    def edit_label_color(self):
+        """
+        弹出颜色选择对话框，更改所有图标文字的颜色
+        """
+        color_code = colorchooser.askcolor(title="选择图标文字颜色")
+        if color_code:
+            hex_color = color_code[1]
+            self.icon_manager.save_label_color(hex_color)
+            self.ui.set_status_text(f"图标文字颜色已更改为: {hex_color}")
             self.open_reset()
 
     def get_command_for_icon(self, icon_id):
@@ -55,9 +69,7 @@ class LogicHandler:
     def open_browser(self):
         loading_window = self._show_loading_message("执行打开浏览器的操作...")
         
-        # run_task 函数需要访问 self 来获取 self.app
         def run_task():
-            # 在这里将 app_instance (即 self.app) 传递给函数
             success = open_browser_system(self.app)
             self.master.after(0, self._update_status_and_destroy_window, success, loading_window, "浏览器")
         
@@ -66,9 +78,7 @@ class LogicHandler:
     def open_file_manager(self):
         loading_window = self._show_loading_message("执行打开文件浏览器的操作...")
         
-        # run_task 函数需要访问 self 来获取 self.app
         def run_task():
-            # 在这里将 app_instance (即 self.app) 传递给函数
             success = open_file_manager(self.app)
             self.master.after(0, self._update_status_and_destroy_window, success, loading_window, "文件浏览器")
         
@@ -82,9 +92,9 @@ class LogicHandler:
         messagebox.showinfo("提示", "此菜单功能待实现！")
         
     def open_reset(self):
-        if hasattr(self, "_status_reset_after_id") and self._status_reset_after_id is not None:
+        if self._status_reset_after_id is not None:
             self.master.after_cancel(self._status_reset_after_id)
-        self._status_reset_after_id = self.master.after(3000, lambda: self.app.ui.set_status_text("就绪"))
+        self._status_reset_after_id = self.master.after(3000, lambda: self.ui.set_status_text("就绪"))
 
     def _show_loading_message(self, message):
         loading_window = tk.Toplevel(self.master)
@@ -110,16 +120,16 @@ class LogicHandler:
         except tk.TclError:
             pass
         if success:
-            self.app.ui.set_status_text(f"{app_name}已启动")
+            self.ui.set_status_text(f"{app_name}已启动")
             self.open_reset()
         else:
-            self.app.ui.set_status_text(f"打开{app_name}失败")
+            self.ui.set_status_text(f"打开{app_name}失败")
             self.open_reset()
 
     def start_pan(self, event):
-        if not self.app.ui.canvas.find_withtag(tk.CURRENT):
-             self.app.ui.canvas.scan_mark(event.x, event.y)
+        if not self.ui.canvas.find_withtag(tk.CURRENT):
+             self.ui.canvas.scan_mark(event.x, event.y)
 
     def pan_view(self, event):
-        if not self.app.ui.canvas.find_withtag(tk.CURRENT):
-            self.app.ui.canvas.scan_dragto(event.x, event.y, gain=1)
+        if not self.ui.canvas.find_withtag(tk.CURRENT):
+            self.ui.canvas.scan_dragto(event.x, event.y, gain=1)

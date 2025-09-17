@@ -10,22 +10,27 @@ class IconManager:
         self.app = app
         self.icons = {}
         self.background_color = "#66ccff"
+        self.label_color = "black" # 新增: 图标文字颜色
         self.load_and_create_icons()
         
     def load_and_create_icons(self):
-        """从用户或默认配置文件加载图标布局和背景颜色"""
-        # 调用 load_user_config 来处理文件加载
+        """从用户或默认配置文件加载图标布局、背景颜色和文字颜色"""
         layout_data = load_user_config("desktop_layout.json")
 
         # 加载背景颜色
         self.background_color = layout_data.get('background_color', "#3498db")
         self.app.ui.canvas.config(bg=self.background_color)
         
+        # 新增: 加载图标文字颜色
+        self.label_color = layout_data.get('label_color', "black")
+        
         # 加载图标布局，如果配置文件中没有则使用默认布局
         icon_layout = layout_data.get('icons', self._get_default_layout())
         for icon_data in icon_layout:
             icon_instance = DesktopIcon(self.app, self.app.ui.canvas, icon_data)
             self.icons[icon_data['id']] = icon_instance
+            # 新增: 在创建图标后，立即更新其文字颜色
+            icon_instance.set_label_color(self.label_color)
 
     def _get_default_layout(self):
         """定义默认的图标布局"""
@@ -37,9 +42,10 @@ class IconManager:
         ]
 
     def save_layout(self):
-        """将当前所有图标的位置和背景颜色保存到用户配置文件"""
+        """将当前所有图标的位置、背景颜色和文字颜色保存到用户配置文件"""
         layout_data = {
             "background_color": self.background_color,
+            "label_color": self.label_color, # 新增: 保存文字颜色
             "icons": []
         }
         for icon_id, icon_instance in self.icons.items():
@@ -51,13 +57,9 @@ class IconManager:
                 "y": icon_instance.y
             })
         
-        # 调用 save_user_config 来处理文件保存
         save_user_config(layout_data, "desktop_layout.json")
     
-        # 设置状态文本为“布局已保存”
         self.app.ui.set_status_text("布局已保存")
-        
-        # 使用 Tkinter 的 after() 方法，在3秒后调用 set_status_ready 方法
         self.app.root.after(1000, self.set_status_ready)
 
     def set_status_ready(self):
@@ -74,4 +76,12 @@ class IconManager:
     def save_background_color(self, color):
         """单独保存背景颜色，并触发布局保存"""
         self.background_color = color
+        self.save_layout()
+
+    # 新增: 保存文字颜色，并更新所有图标
+    def save_label_color(self, color):
+        """单独保存文字颜色，并更新所有图标的颜色"""
+        self.label_color = color
+        for icon_id, icon_instance in self.icons.items():
+            icon_instance.set_label_color(color)
         self.save_layout()

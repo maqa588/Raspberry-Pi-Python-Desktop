@@ -1,4 +1,4 @@
-# desktop_icon.py
+# system/desktop_icon.py
 import tkinter as tk
 from PIL import Image, ImageTk
 import os
@@ -24,6 +24,7 @@ class DesktopIcon:
         self.tk_image = ImageTk.PhotoImage(self.pil_image)
 
         self.image_item = self.canvas.create_image(self.x, self.y, image=self.tk_image, anchor=tk.CENTER)
+        # 注意：这里不再设置初始颜色，而是通过 set_label_color 方法设置
         self.text_item = self.canvas.create_text(self.x, self.y + 35, text=self.label_text, fill="white", font=("Arial", 9))
         
         self.tag = f"icon_{self.id}"
@@ -61,3 +62,8 @@ class DesktopIcon:
         self.x = coords[0]
         self.y = coords[1]
         self.app.update_icon_position(self.id, self.x, self.y)
+
+    # 新增方法: 更新图标文字的颜色
+    def set_label_color(self, color):
+        """更改图标文字的颜色"""
+        self.canvas.itemconfig(self.text_item, fill=color)
