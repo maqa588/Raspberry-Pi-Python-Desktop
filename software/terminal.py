@@ -5,6 +5,8 @@ import tkinter as tk
 from tkinter import messagebox
 from system.config import WINDOW_WIDTH, WINDOW_HEIGHT
 from system.button.about import show_system_about, show_developer_about
+from system.wireless.wifi import show_wifi_configure
+from system.wireless.bluetooth import show_bluetooth_configure
 
 class TerminalApp:
     def __init__(self, desktop_app):
@@ -53,6 +55,10 @@ class TerminalApp:
         about_menu.add_command(label="系统信息", command=lambda: show_system_about(self.root))
         about_menu.add_command(label="关于开发者", command=lambda: show_developer_about(self.root))
         self.menubar.add_cascade(label="关于", menu=about_menu)
+        edit_menu = tk.Menu(self.menubar, tearoff=0)
+        edit_menu.add_command(label="WIFI开关", command=lambda: show_wifi_configure(self.master))
+        edit_menu.add_command(label="蓝牙开关", command=lambda: show_bluetooth_configure(self.master))
+        self.menubar.add_cascade(label="设置", menu=edit_menu)
         self.root.config(menu=self.menubar)
 
         # 创建一个 Frame 作为 xterm 的容器

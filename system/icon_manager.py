@@ -35,17 +35,18 @@ class IconManager:
     def _get_default_layout(self):
         """定义默认的图标布局"""
         return [
-            {"id": "terminal", "text": "终端", "icon": "icons/terminal.png", "x": 80, "y": 80},
-            {"id": "browser", "text": "浏览器", "icon": "icons/browser.png", "x": 180, "y": 80},
-            {"id": "files", "text": "文件管理器", "icon": "icons/folder.png", "x": 80, "y": 180},
-            {"id": "editor", "text": "文本编辑器", "icon": "icons/editor.png", "x": 180, "y": 180},
+            {"id": "terminal", "text": "终端", "icon": "icons/terminal.png", "x": 60, "y": 60},
+            {"id": "browser", "text": "浏览器", "icon": "icons/browser.png", "x": 140, "y": 60},
+            {"id": "files", "text": "文件管理器", "icon": "icons/folder.png", "x": 60, "y": 140},
+            {"id": "editor", "text": "文本编辑器", "icon": "icons/editor.png", "x": 140, "y": 140},
+            {"id": "camera", "text": "相机", "icon": "icons/camera.png", "x": 220, "y": 60},
         ]
 
     def save_layout(self):
         """将当前所有图标的位置、背景颜色和文字颜色保存到用户配置文件"""
         layout_data = {
             "background_color": self.background_color,
-            "label_color": self.label_color, # 新增: 保存文字颜色
+            "label_color": self.label_color,
             "icons": []
         }
         for icon_id, icon_instance in self.icons.items():

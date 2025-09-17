@@ -12,6 +12,7 @@ from system.config import WINDOW_WIDTH, WINDOW_HEIGHT
 from software.terminal import open_terminal_system
 from software.browser import open_browser_system
 from software.file_manager import open_file_manager
+from software.camera import open_camera_system
 
 class LogicHandler:
     # 构造函数现在接收 app_instance, icon_manager 和 ui 的引用
@@ -56,6 +57,8 @@ class LogicHandler:
             return self.open_file_manager
         elif icon_id == "editor":
             return self.open_editor
+        elif icon_id == "camera":
+            return self.open_camera
         else:
             return lambda: messagebox.showinfo("操作", f"双击了图标: {icon_id}\n请在此处实现您的功能！")
 
@@ -87,6 +90,13 @@ class LogicHandler:
     def open_editor(self):
         print("执行打开文件编辑器的操作...")
         messagebox.showinfo("操作", "正在打开文件编辑器...")
+
+    def open_camera(self):
+        loading_window = self._show_loading_message("执行打开相机的操作...")
+        def run_task():
+            success = open_camera_system(self.app)
+            self.master.after(0, self._update_status_and_destroy_window, success, loading_window, "相机")
+        threading.Thread(target=run_task).start()
 
     def menu_placeholder_function(self):
         messagebox.showinfo("提示", "此菜单功能待实现！")
