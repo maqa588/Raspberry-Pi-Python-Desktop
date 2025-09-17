@@ -14,6 +14,7 @@ from pathlib import Path
 import tkinter as tk
 from tkinter import ttk, messagebox, simpledialog
 from system.config import WINDOW_WIDTH, WINDOW_HEIGHT
+from system.button.about import show_system_about, show_developer_about
 
 class FileManagerApp:
     def __init__(self, master):
@@ -57,7 +58,8 @@ class FileManagerApp:
         # --- 关于菜单 ---
         about_menu = tk.Menu(self.menubar, tearoff=0)
         self.menubar.add_cascade(label="关于", menu=about_menu)
-        about_menu.add_command(label="系统信息", command=self.show_system_info)
+        about_menu.add_command(label="系统信息", command=lambda: show_system_about(self.master))
+        about_menu.add_command(label="关于开发者", command=lambda: show_developer_about(self.master))
         about_menu.add_separator()
         about_menu.add_command(label="退出", command=self.master.quit)
         # --- 文件菜单 ---
@@ -251,12 +253,6 @@ class FileManagerApp:
     def refresh(self):
         """刷新当前目录视图"""
         self.populate_file_list(self.current_path)
-
-    def show_system_info(self):
-        info = (f"操作系统: {platform.system()} {platform.release()}\n"
-                f"架构: {platform.machine()}\n"
-                f"Python 版本: {platform.python_version()}")
-        messagebox.showinfo("系统信息", info)
 
     def create_new_folder(self):
         folder_name = simpledialog.askstring("新建文件夹", "请输入文件夹名称:")
