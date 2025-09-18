@@ -6,7 +6,6 @@ project_root = os.path.dirname(os.path.dirname(current_file_path))
 sys.path.insert(0, project_root)
 
 from PIL import Image, ImageTk
-import platform
 import datetime
 from pathlib import Path
 import tkinter as tk
@@ -88,17 +87,14 @@ class FileManagerApp:
         tree_frame = tk.Frame(self.master)
         tree_frame.pack(expand=True, fill=tk.BOTH, padx=5, pady=5)
         
-        self.tree = ttk.Treeview(tree_frame, columns=("name", "modified"), show="headings")
-        self.tree.heading("name", text="名称")
+        # 注意：show="tree headings" 才能显示图标所在的 #0 列
+        self.tree = ttk.Treeview(tree_frame, columns=("modified",), show="tree headings")
+        self.tree.heading("#0", text="名称")
         self.tree.heading("modified", text="修改时间")
 
-        # --- 关键修改：调整列宽以适应 480px 屏幕 ---
-        # 假设总宽度480，减去边距和滚动条约30，剩余450
-        # 图标列宽度为30
-        # 名称列和修改时间列分配剩余的420
-        self.tree.column("#0", width=30, stretch=tk.NO) # 图标列
-        self.tree.column("name", width=280)             # 名称列
-        self.tree.column("modified", width=140)         # 修改时间列
+        # 列宽设置（适配 480px 的布局）
+        self.tree.column("#0", width=280, stretch=tk.NO)   # 图标 + 文件名
+        self.tree.column("modified", width=140, anchor="w")
 
         # 创建垂直滚动条
         self.v_scrollbar = ttk.Scrollbar(tree_frame, orient="vertical", command=self.tree.yview)
@@ -112,7 +108,9 @@ class FileManagerApp:
         tree_frame.grid_rowconfigure(0, weight=1)
         tree_frame.grid_columnconfigure(0, weight=1)
         
+        # 绑定双击事件（会调用下面的 on_double_click）
         self.tree.bind("<Double-1>", self.on_double_click)
+
 
     def get_file_category(self, filename: str) -> str:
         """根据文件扩展名返回分类名称"""
@@ -135,7 +133,7 @@ class FileManagerApp:
         self.path_var.set(str(self.current_path))
         self.master.title(f"文件管理器 - {self.current_path.name}")
 
-        # --- 关键修改：文件分类逻辑 ---
+        # 文件分类
         categories = {
             "文件夹": [], "图片": [], "音乐": [], "视频": [],
             "文档": [], "网页": [], "压缩包": [], "其他": []
@@ -156,17 +154,27 @@ class FileManagerApp:
             messagebox.showerror("错误", f"无法读取目录内容: {e}")
             return
 
-        # 插入 ".." 以返回上一级目录
+        # 插入 ".." 以返回上一级目录（将 .. 放在 #0 的 text 中）
         if path.parent != path:
-            self.tree.insert("", "end", text="", values=("..", "上一级", ""), image=self.icon_references.get("folder"), tags=('real_dir',))
+            self.tree.insert("", "end",
+                text="..",
+                values=("上一级",),
+                image=self.icon_references.get("folder"),
+                tags=('real_dir',)
+            )
 
         # 按分类顺序插入到 Treeview
         for category_name, items in categories.items():
             if not items:
                 continue
 
-            # 插入分类的父节点
-            category_node = self.tree.insert("", "end", text="", values=(category_name, "分类", ""), image=self.icon_references.get("folder"), open=False)
+            # 插入分类的父节点（分类节点不是实际文件夹，不带 real_dir tag）
+            category_node = self.tree.insert("", "end",
+                text=category_name,
+                values=("分类",),
+                image=self.icon_references.get("folder"),
+                open=False
+            )
 
             # 排序后插入子节点
             items.sort(key=lambda e: e.name.lower())
@@ -176,14 +184,19 @@ class FileManagerApp:
                     modified_time = datetime.datetime.fromtimestamp(stat.st_mtime).strftime('%Y-%m-%d %H:%M')
                     
                     is_dir = item.is_dir()
-                    # 如果是真实文件夹，使用folder图标，否则根据文件类型获取图标
                     icon_key = "folder" if is_dir else self.get_icon_key_for_file(item.name)
                     photo_image = self.icon_references.get(icon_key, self.icon_references.get("file"))
+                    # 保持对 PhotoImage 的引用，防止被 GC
                     self.photo_image_references.append(photo_image)
-                    
-                    # 使用 tag 来区分真实文件夹和虚拟分类
+
                     item_tags = ('real_dir',) if is_dir else ()
-                    self.tree.insert(category_node, "end", text="", values=(item.name, modified_time), image=photo_image, tags=item_tags)
+                    # 把文件名放到 text（#0 列），把修改时间放到 values
+                    self.tree.insert(category_node, "end",
+                        text=item.name,
+                        values=(modified_time,),
+                        image=photo_image,
+                        tags=item_tags
+                    )
                 except OSError:
                     continue
 
@@ -198,17 +211,18 @@ class FileManagerApp:
         return "file"
         
     def on_double_click(self, event):
-        """处理双击事件，只对真实文件夹和'..'进行导航"""
+        """处理双击事件：根据 #0 (text) 和 tags 决定是否导航"""
         item_id = self.tree.identify_row(event.y)
-        if not item_id: return
+        if not item_id:
+            return
 
         item = self.tree.item(item_id)
-        name = item['values'][0]
+        # 文件名 / 项目名称放在 text（#0 列）
+        name_text = item.get('text', '')
+        tags = item.get('tags', ())
 
-        # --- 关键修改：只处理真实目录的导航 ---
-        # 检查是否是 '..' 或者被标记为真实文件夹的项
-        is_real_folder = 'real_dir' in item['tags']
-        is_parent_dir = name == ".."
+        is_real_folder = 'real_dir' in tags
+        is_parent_dir = name_text == ".."
 
         if is_parent_dir:
             new_path = self.current_path.parent
@@ -217,10 +231,14 @@ class FileManagerApp:
             return
 
         if is_real_folder:
-            new_path = self.current_path / name
-            # 再次确认路径确实是目录，避免符号链接等问题
+            # 真实目录名（在当前路径下）
+            new_path = self.current_path / name_text
+            # 避免符号链接或奇怪路径导致的问题，先判断是否为目录
             if new_path.is_dir():
                 self.navigate_to(new_path)
+            return
+
+        # （可选）如果要对普通文件实现双击打开，可以在这里加入调用系统打开的逻辑
 
     def navigate_to(self, path: Path):
         """导航到新路径并更新历史记录"""
