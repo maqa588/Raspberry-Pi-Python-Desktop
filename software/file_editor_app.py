@@ -61,29 +61,6 @@ class FileEditorApp:
         self.default_font = font.Font(font=self.text_widget['font'])
         self.current_font = self.default_font
         
-    Python
-import tkinter as tk
-
-# 假设这些方法和类已经定义
-class App:
-    def __init__(self, master):
-        self.master = master
-        self.open_file = lambda: print("打开文件")
-        self.save_file = lambda: print("保存文件")
-        self.save_file_as = lambda: print("另存为")
-        self.copy_text = lambda: print("复制")
-        self.paste_text = lambda: print("粘贴")
-        self.show_word_count = lambda: print("显示字数")
-        self.show_encoding = lambda: print("显示编码格式")
-        self.change_font_size = lambda: print("修改字体大小")
-        self.change_font_color = lambda: print("修改字体颜色")
-        self.toggle_bold = lambda: print("切换加粗")
-        self.toggle_underline = lambda: print("切换下划线")
-        self.undo_text = lambda: print("撤销")
-        self.refresh_file = lambda: print("刷新")
-        self.is_bold = tk.BooleanVar()
-        self.is_underline = tk.BooleanVar()
-
     def create_menu(self):
         """用自定义顶部栏替换 Tkinter 菜单栏"""
         # 创建一个 Frame 作为自定义顶部栏的容器
