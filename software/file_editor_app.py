@@ -61,19 +61,49 @@ class FileEditorApp:
         self.default_font = font.Font(font=self.text_widget['font'])
         self.current_font = self.default_font
         
+    Python
+import tkinter as tk
+
+# 假设这些方法和类已经定义
+class App:
+    def __init__(self, master):
+        self.master = master
+        self.open_file = lambda: print("打开文件")
+        self.save_file = lambda: print("保存文件")
+        self.save_file_as = lambda: print("另存为")
+        self.copy_text = lambda: print("复制")
+        self.paste_text = lambda: print("粘贴")
+        self.show_word_count = lambda: print("显示字数")
+        self.show_encoding = lambda: print("显示编码格式")
+        self.change_font_size = lambda: print("修改字体大小")
+        self.change_font_color = lambda: print("修改字体颜色")
+        self.toggle_bold = lambda: print("切换加粗")
+        self.toggle_underline = lambda: print("切换下划线")
+        self.undo_text = lambda: print("撤销")
+        self.refresh_file = lambda: print("刷新")
+        self.is_bold = tk.BooleanVar()
+        self.is_underline = tk.BooleanVar()
+
     def create_menu(self):
-        # (此部分代码与之前完全相同，为简洁省略)
-        # ... 您之前的 create_menu 代码 ...
-        self.menubar = tk.Menu(self.master)
-        self.master.config(menu=self.menubar)
-        file_menu = tk.Menu(self.menubar, tearoff=0)
-        about_menu = tk.Menu(self.menubar, tearoff=0)
-        self.menubar.add_cascade(label="关于", menu=about_menu)
+        """用自定义顶部栏替换 Tkinter 菜单栏"""
+        # 创建一个 Frame 作为自定义顶部栏的容器
+        top_bar_frame = tk.Frame(self.master, bg="lightgray", height=30)
+        top_bar_frame.pack(side=tk.TOP, fill=tk.X)
+
+        # --- 关于菜单按钮 ---
+        about_mb = tk.Menubutton(top_bar_frame, text="关于", activebackground="gray", bg="lightgray")
+        about_mb.pack(side=tk.LEFT, padx=5)
+        about_menu = tk.Menu(about_mb, tearoff=0)
         about_menu.add_command(label="系统信息", command=lambda: show_system_about(self.master))
         about_menu.add_command(label="关于开发者", command=lambda: show_developer_about(self.master))
         about_menu.add_separator()
         about_menu.add_command(label="退出", command=self.master.quit)
-        self.menubar.add_cascade(label="文件", menu=file_menu)
+        about_mb.config(menu=about_menu)
+
+        # --- 文件菜单按钮 ---
+        file_mb = tk.Menubutton(top_bar_frame, text="文件", activebackground="gray", bg="lightgray")
+        file_mb.pack(side=tk.LEFT, padx=5)
+        file_menu = tk.Menu(file_mb, tearoff=0)
         file_menu.add_command(label="打开...", command=self.open_file)
         file_menu.add_command(label="保存", command=self.save_file)
         file_menu.add_command(label="另存为...", command=self.save_file_as)
@@ -83,19 +113,34 @@ class FileEditorApp:
         file_menu.add_separator()
         file_menu.add_command(label="查看字数", command=self.show_word_count)
         file_menu.add_command(label="查看编码格式", command=self.show_encoding)
-        format_menu = tk.Menu(self.menubar, tearoff=0)
-        self.menubar.add_cascade(label="格式", menu=format_menu)
+        file_mb.config(menu=file_menu)
+        
+        # --- 格式菜单按钮 ---
+        format_mb = tk.Menubutton(top_bar_frame, text="格式", activebackground="gray", bg="lightgray")
+        format_mb.pack(side=tk.LEFT, padx=5)
+        format_menu = tk.Menu(format_mb, tearoff=0)
         format_menu.add_command(label="字体大小", command=self.change_font_size)
         format_menu.add_command(label="字体颜色", command=self.change_font_color)
         style_menu = tk.Menu(format_menu, tearoff=0)
         format_menu.add_cascade(label="字体样式", menu=style_menu)
-        self.is_bold = tk.BooleanVar()
-        self.is_underline = tk.BooleanVar()
         style_menu.add_checkbutton(label="加粗", onvalue=True, offvalue=False, variable=self.is_bold, command=self.toggle_bold)
         style_menu.add_checkbutton(label="下划线", onvalue=True, offvalue=False, variable=self.is_underline, command=self.toggle_underline)
-        self.menubar.add_command(label="撤销", command=self.undo_text)
-        self.menubar.add_command(label="刷新", command=self.refresh_file)
-        self.menubar.add_command(label="保存", command=self.save_file)
+        format_mb.config(menu=format_menu)
+
+        # --- 普通命令按钮 ---
+        undo_btn = tk.Button(top_bar_frame, text="撤销", command=self.undo_text, relief=tk.FLAT, bg="lightgray")
+        undo_btn.pack(side=tk.LEFT, padx=5)
+        
+        refresh_btn = tk.Button(top_bar_frame, text="刷新", command=self.refresh_file, relief=tk.FLAT, bg="lightgray")
+        refresh_btn.pack(side=tk.LEFT, padx=5)
+
+        # 确保保存按钮显示，但如果文件菜单中已经有了，可以去掉
+        save_btn = tk.Button(top_bar_frame, text="保存", command=self.save_file, relief=tk.FLAT, bg="lightgray")
+        save_btn.pack(side=tk.LEFT, padx=5)
+        
+        # --- 退出按钮 ---
+        quit_btn = tk.Button(top_bar_frame, text="X", command=self.master.quit, relief=tk.FLAT, bg="lightgray", fg="red")
+        quit_btn.pack(side=tk.RIGHT, padx=5)
 
     # --- 重构: 将文件加载逻辑提取到一个单独的方法中 ---
     def _load_file(self, filepath):

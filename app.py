@@ -5,7 +5,7 @@ from system.app_logic import LogicHandler
 from system.icon_manager import IconManager
 from software.browser_app import create_browser_window
 from software.file_manager_app import FileManagerApp
-from system.config import WINDOW_WIDTH, WINDOW_HEIGHT
+from system.config import MAIN_WIDTH, MAIN_HEIGHT
 
 # ... (命令行参数检查部分保持不变) ...
 if len(sys.argv) > 1:
@@ -24,7 +24,7 @@ class DesktopApp:
         self.master = root
         self.root = root
         self.master.title("Raspberry Pi Desktop")
-        self.master.geometry(f"{WINDOW_WIDTH}x{WINDOW_HEIGHT}")
+        self.master.geometry(f"{MAIN_WIDTH}x{MAIN_HEIGHT}")
         
         # 1. 首先初始化 LogicHandler，因为 UI 组件在创建时会依赖它。
         #    此时 UI 和 IconManager 都还不存在，所以暂时传入 None。

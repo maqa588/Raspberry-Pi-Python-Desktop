@@ -3,7 +3,7 @@ import platform
 import subprocess
 import tkinter as tk
 from tkinter import messagebox
-from system.config import WINDOW_WIDTH, WINDOW_HEIGHT
+from system.config import TERMINAL_WIDTH, TERMINAL_HEIGHT
 from system.button.about import show_system_about, show_developer_about
 from system.wireless.wifi import show_wifi_configure
 from system.wireless.bluetooth import show_bluetooth_configure
@@ -43,7 +43,7 @@ class TerminalApp:
         # 创建 Tkinter 窗口
         self.root = tk.Tk()
         self.root.title("嵌入式终端")
-        self.root.geometry(f"{WINDOW_WIDTH}x{WINDOW_HEIGHT}")
+        self.root.geometry(f"{TERMINAL_WIDTH}x{TERMINAL_HEIGHT}")
         self.root.protocol("WM_DELETE_WINDOW", self.on_quit)
 
         # 创建一个 Frame 作为自定义顶部栏的容器

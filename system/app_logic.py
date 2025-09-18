@@ -8,7 +8,6 @@ import psutil
 from PIL import Image, ImageTk
 import os
 
-from system.config import WINDOW_WIDTH, WINDOW_HEIGHT
 from software.terminal import open_terminal_system
 from software.browser import open_browser_system
 from software.file_manager import open_file_manager

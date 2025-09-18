@@ -17,7 +17,11 @@ def get_resource_path(relative_path):
 # --- 配置 ---
 CONFIG_FILE = 'system/desktop_layout.json'
 WINDOW_WIDTH = 480
-WINDOW_HEIGHT = 290
+WINDOW_HEIGHT = 320
+MAIN_WIDTH = 480
+MAIN_HEIGHT = 290
+TERMINAL_WIDTH = 480
+TERMINAL_HEIGHT = 300
 # 画布的虚拟大小，大于窗口尺寸以实现滚动效果
 CANVAS_WIDTH = 800
 CANVAS_HEIGHT = 600

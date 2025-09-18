@@ -1,12 +1,4 @@
 import os
-import sys
-
-# 动态获取项目根目录并添加到 sys.path
-current_file_path = os.path.abspath(__file__)
-project_root = os.path.dirname(os.path.dirname(current_file_path))
-if project_root not in sys.path:
-    sys.path.insert(0, project_root)
-
 import datetime
 import tkinter as tk
 from tkinter import messagebox
@@ -22,7 +14,7 @@ class CameraApp:
     def __init__(self, master):
         self.master = master
         self.master.title("Raspberry Pi Camera")
-        self.master.geometry("480x320") # 调整窗口尺寸
+        self.master.geometry("480x320")
         self.master.resizable(False, False)
 
         # 初始化 Picamera2 实例并配置
@@ -31,40 +23,54 @@ class CameraApp:
         self.picam2.configure(self.preview_config)
 
         self.preview_label = None
-        self.create_menu()
+        
+        # 退出事件绑定，这里使用 confirm_exit
+        self.master.protocol("WM_DELETE_WINDOW", self.confirm_exit)
+
         self.init_ui()
 
         # 启动相机预览
         self.picam2.start()
         self.update_preview()
 
-    def create_menu(self):
-        menubar = tk.Menu(self.master)
-        file_menu = tk.Menu(menubar, tearoff=0)
+    def init_ui(self):
+        # ------------------------------------------------------------------
+        # 创建自定义顶部栏
+        # ------------------------------------------------------------------
+        top_bar_frame = tk.Frame(self.master, bg="lightgray", height=30)
+        top_bar_frame.pack(side=tk.TOP, fill=tk.X)
+
+        # 文件菜单按钮
+        file_mb = tk.Menubutton(top_bar_frame, text="文件", activebackground="gray", bg="lightgray")
+        file_mb.pack(side=tk.LEFT, padx=5)
+        file_menu = tk.Menu(file_mb, tearoff=0)
         file_menu.add_command(label="拍照", command=self.take_photo)
         file_menu.add_separator()
         file_menu.add_command(label="退出", command=self.confirm_exit)
-        menubar.add_cascade(label="文件", menu=file_menu)
+        file_mb.config(menu=file_menu)
 
-        about_menu = tk.Menu(menubar, tearoff=0)
+        # 关于菜单按钮
+        about_mb = tk.Menubutton(top_bar_frame, text="关于", activebackground="gray", bg="lightgray")
+        about_mb.pack(side=tk.LEFT, padx=5)
+        about_menu = tk.Menu(about_mb, tearoff=0)
         about_menu.add_command(label="系统信息", command=lambda: show_system_about(self.master))
         about_menu.add_command(label="关于开发者", command=lambda: show_developer_about(self.master))
-        menubar.add_cascade(label="关于", menu=about_menu)
+        about_mb.config(menu=about_menu)
 
-        self.master.config(menu=menubar)
+        # 自定义退出按钮
+        quit_button = tk.Button(top_bar_frame, text="X", command=self.confirm_exit, relief=tk.FLAT, bg="lightgray", fg="red", padx=5)
+        quit_button.pack(side=tk.RIGHT, padx=5)
 
-    def init_ui(self):
+        # ------------------------------------------------------------------
+        
         # 创建主框架来容纳相机预览和按钮
-        # 移除 main_frame 上的 pady，并使用 fill=tk.BOTH, expand=True 确保其填充所有可用空间
-        # 注意：菜单栏的高度通常由 Tkinter 自动管理，这里假设它占用 30px
-        main_frame = tk.Frame(self.master, bg="grey") # 暂时用灰色背景查看其边界
-        main_frame.pack(side=tk.TOP, fill=tk.BOTH, expand=True, pady=0, padx=0) # 关键：移除默认的pady
+        main_frame = tk.Frame(self.master, bg="grey")
+        main_frame.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
 
         # 左侧相机预览框架
         left_frame = tk.Frame(main_frame, width=387, height=290, bg='black')
-        # 确保 left_frame 的 pack 参数没有额外的 pady
-        left_frame.pack(side=tk.LEFT, padx=(0, 10), pady=0) # 关键：移除 pady
-        left_frame.pack_propagate(False) # 防止子组件调整框架大小
+        left_frame.pack(side=tk.LEFT, padx=(0, 10), pady=0)
+        left_frame.pack_propagate(False)
 
         # 摄像头预览显示区域
         self.preview_label = tk.Label(left_frame, bg='black')
@@ -72,8 +78,7 @@ class CameraApp:
 
         # 右侧控制按钮框架
         right_frame = tk.Frame(main_frame)
-        # 确保 right_frame 的 pack 参数没有额外的 pady
-        right_frame.pack(side=tk.RIGHT, fill=tk.Y, padx=(0, 5), pady=0) # 关键：移除 pady
+        right_frame.pack(side=tk.RIGHT, fill=tk.Y, padx=(0, 5), pady=0)
 
         # 按钮布局（竖向放置）
         btn_photo = tk.Button(right_frame, text="拍照", command=self.take_photo, width=12)
@@ -82,8 +87,8 @@ class CameraApp:
         btn_exit = tk.Button(right_frame, text="返回", command=self.confirm_exit, width=12)
         btn_exit.pack(pady=(5, 5))
         
-        # 退出事件绑定
-        self.master.protocol("WM_DELETE_WINDOW", self.confirm_exit)
+        # 强制 Tkinter 立即更新窗口
+        self.master.update_idletasks()
 
     def update_preview(self):
         frame = self.picam2.capture_array()
