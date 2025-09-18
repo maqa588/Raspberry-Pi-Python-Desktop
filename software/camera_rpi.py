@@ -1,17 +1,18 @@
 import os
+import sys
+
+current_file_path = os.path.abspath(__file__)
+project_root = os.path.dirname(os.path.dirname(current_file_path))
+sys.path.insert(0, project_root)
+
+from system.button.about import show_system_about, show_developer_about
+
 import datetime
 import tkinter as tk
 from tkinter import messagebox
 from picamera2 import Picamera2
 from PIL import Image, ImageTk
 import numpy as np
-
-current_file_path = os.path.abspath(__file__)
-project_root = os.path.dirname(os.path.dirname(current_file_path))
-sys.path.insert(0, project_root)
-
-# 从正确的路径导入模块
-from system.button.about import show_system_about, show_developer_about
 
 # --- 相机应用主类 ---
 class CameraApp:
