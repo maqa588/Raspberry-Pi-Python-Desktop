@@ -46,20 +46,36 @@ class TerminalApp:
         self.root.geometry(f"{WINDOW_WIDTH}x{WINDOW_HEIGHT}")
         self.root.protocol("WM_DELETE_WINDOW", self.on_quit)
 
-        # 创建顶部菜单栏
-        self.menubar = tk.Menu(self.root)
-        file_menu = tk.Menu(self.menubar, tearoff=0)
+        # 创建一个 Frame 作为自定义顶部栏的容器
+        top_bar_frame = tk.Frame(self.root, bg="lightgray", height=30)
+        top_bar_frame.pack(side=tk.TOP, fill=tk.X)
+
+        # 文件菜单按钮
+        file_mb = tk.Menubutton(top_bar_frame, text="文件", activebackground="gray", bg="lightgray")
+        file_mb.pack(side=tk.LEFT, padx=5)
+        file_menu = tk.Menu(file_mb, tearoff=0)
         file_menu.add_command(label="退出", command=self.on_quit)
-        self.menubar.add_cascade(label="文件", menu=file_menu)
-        about_menu = tk.Menu(self.menubar, tearoff=0)
+        file_mb.config(menu=file_menu)
+
+        # 关于菜单按钮
+        about_mb = tk.Menubutton(top_bar_frame, text="关于", activebackground="gray", bg="lightgray")
+        about_mb.pack(side=tk.LEFT, padx=5)
+        about_menu = tk.Menu(about_mb, tearoff=0)
         about_menu.add_command(label="系统信息", command=lambda: show_system_about(self.root))
         about_menu.add_command(label="关于开发者", command=lambda: show_developer_about(self.root))
-        self.menubar.add_cascade(label="关于", menu=about_menu)
-        edit_menu = tk.Menu(self.menubar, tearoff=0)
+        about_mb.config(menu=about_menu)
+
+        # 设置菜单按钮
+        edit_mb = tk.Menubutton(top_bar_frame, text="设置", activebackground="gray", bg="lightgray")
+        edit_mb.pack(side=tk.LEFT, padx=5)
+        edit_menu = tk.Menu(edit_mb, tearoff=0)
         edit_menu.add_command(label="WIFI开关", command=lambda: show_wifi_configure(self.root))
         edit_menu.add_command(label="蓝牙开关", command=lambda: show_bluetooth_configure(self.root))
-        self.menubar.add_cascade(label="设置", menu=edit_menu)
-        self.root.config(menu=self.menubar)
+        edit_mb.config(menu=edit_menu)
+
+        # 退出按钮
+        quit_button = tk.Button(top_bar_frame, text="X", command=self.on_quit, relief=tk.FLAT, bg="lightgray", fg="red", padx=5)
+        quit_button.pack(side=tk.RIGHT, padx=5)
 
         # 创建一个 Frame 作为 xterm 的容器
         self.term_frame = tk.Frame(self.root, width=480, height=290)
