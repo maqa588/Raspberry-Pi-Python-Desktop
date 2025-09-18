@@ -2,6 +2,9 @@
 # 测试中的桌面布局文件
 system/desktop_layout.json
 
+*.dmg
+*.exe
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

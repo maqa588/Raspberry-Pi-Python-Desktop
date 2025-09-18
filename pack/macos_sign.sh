@@ -1,0 +1,1 @@
+codesign --force --verify --verbose --sign "Spencer Maqa" "dist/Raspberry Pi Desktop.app"
