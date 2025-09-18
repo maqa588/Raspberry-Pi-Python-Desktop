@@ -6,6 +6,10 @@ from picamera2 import Picamera2
 from PIL import Image, ImageTk
 import numpy as np
 
+current_file_path = os.path.abspath(__file__)
+project_root = os.path.dirname(os.path.dirname(current_file_path))
+sys.path.insert(0, project_root)
+
 # 从正确的路径导入模块
 from system.button.about import show_system_about, show_developer_about
 
