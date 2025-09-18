@@ -8,4 +8,4 @@ create-dmg \
   --hide-extension "Raspberry Pi Desktop.app" \
   --app-drop-link 430 190 \
   "Raspberry Pi Desktop.dmg" \
-  "../dist/Raspberry Pi Desktop.app" 
+  "dist/Raspberry Pi Desktop.app" 
