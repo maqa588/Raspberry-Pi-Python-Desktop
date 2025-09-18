@@ -12,6 +12,7 @@ from system.config import WINDOW_WIDTH, WINDOW_HEIGHT
 from software.terminal import open_terminal_system
 from software.browser import open_browser_system
 from software.file_manager import open_file_manager
+from software.file_editor import open_file_editor
 from software.camera import open_camera_system
 
 class LogicHandler:
@@ -88,8 +89,13 @@ class LogicHandler:
         threading.Thread(target=run_task).start()
 
     def open_editor(self):
-        print("执行打开文件编辑器的操作...")
-        messagebox.showinfo("操作", "正在打开文件编辑器...")
+        loading_window = self._show_loading_message("执行打开文件浏览器的操作...")
+        
+        def run_task():
+            success = open_file_editor(self.app)
+            self.master.after(0, self._update_status_and_destroy_window, success, loading_window, "文件浏览器")
+        
+        threading.Thread(target=run_task).start()
 
     def open_camera(self):
         loading_window = self._show_loading_message("执行打开相机的操作...")

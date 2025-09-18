@@ -5,11 +5,13 @@ current_file_path = os.path.abspath(__file__)
 project_root = os.path.dirname(os.path.dirname(current_file_path))
 sys.path.insert(0, project_root)
 
+import subprocess
 from PIL import Image, ImageTk
 import datetime
 from pathlib import Path
 import tkinter as tk
 from tkinter import ttk, messagebox, simpledialog
+from pathlib import Path
 from system.config import WINDOW_WIDTH, WINDOW_HEIGHT
 from system.button.about import show_system_about, show_developer_about
 
@@ -209,36 +211,73 @@ class FileManagerApp:
         if ext in ['txt', 'md', 'py', 'json', 'xml', 'log', 'ini', 'cfg', 'pdf', 'doc', 'docx']: return "editor"
         if ext in ['html', 'htm', 'css', 'js', 'svg']: return "browser"
         return "file"
+    
+    def open_document_in_editor(self, file_path: Path):
+        """为指定的文件路径启动外部文本编辑器子进程。"""
+        try:
+            main_executable = sys.executable
+            # 必须将 Path 对象转换为字符串才能传递给子进程
+            file_path_str = str(file_path)
+
+            if getattr(sys, 'frozen', False):
+                # 如果是 PyInstaller 打包后的环境
+                # 我们假设主程序可以处理 "file_editor_only" 和一个文件路径参数
+                command = [main_executable, "file_editor_only", file_path_str]
+            else:
+                # 如果是直接用 Python 运行的开发环境
+                command = [main_executable, 'software/file_editor_app.py', file_path_str]
+            
+            # 启动子进程，不阻塞主程序
+            subprocess.Popen(command)
+            return True
+
+        except Exception as e:
+            messagebox.showerror("启动失败", f"启动文件编辑器时发生未知错误：{e}")
+            return False
         
     def on_double_click(self, event):
-        """处理双击事件：根据 #0 (text) 和 tags 决定是否导航"""
+        """处理双击事件：导航目录或用文本编辑器打开文件"""
         item_id = self.tree.identify_row(event.y)
         if not item_id:
             return
 
         item = self.tree.item(item_id)
-        # 文件名 / 项目名称放在 text（#0 列）
         name_text = item.get('text', '')
         tags = item.get('tags', ())
 
         is_real_folder = 'real_dir' in tags
         is_parent_dir = name_text == ".."
 
+        # 处理父目录导航
         if is_parent_dir:
             new_path = self.current_path.parent
             if new_path != self.current_path:
                 self.navigate_to(new_path)
             return
 
-        if is_real_folder:
-            # 真实目录名（在当前路径下）
-            new_path = self.current_path / name_text
-            # 避免符号链接或奇怪路径导致的问题，先判断是否为目录
-            if new_path.is_dir():
-                self.navigate_to(new_path)
-            return
+        # 构造完整路径
+        full_path = self.current_path / name_text
 
-        # （可选）如果要对普通文件实现双击打开，可以在这里加入调用系统打开的逻辑
+        # 处理真实目录导航
+        if is_real_folder:
+            if full_path.is_dir():
+                self.navigate_to(full_path)
+            else:
+                messagebox.showwarning("导航失败", f"目录 '{name_text}' 不存在。")
+            return
+        
+        # --- 新增逻辑：处理文件 ---
+        # 如果不是目录，则判断是否为可编辑的文档文件
+        if full_path.is_file():
+            icon_key = self.get_icon_key_for_file(name_text)
+            if icon_key == "editor":
+                # 调用新方法打开文本编辑器
+                self.open_document_in_editor(full_path)
+        
+        # (可选) 在这里可以为其他文件类型（如图片、视频）添加不同的打开逻辑
+        # else:
+        #     # 默认的系统打开方式
+        #     os.startfile(full_path)
 
     def navigate_to(self, path: Path):
         """导航到新路径并更新历史记录"""
