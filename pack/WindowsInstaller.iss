@@ -2,7 +2,7 @@
 ; SEE THE DOCUMENTATION FOR DETAILS ON CREATING INNO SETUP SCRIPT FILES!
 
 #define MyAppName "Raspberry Pi Desktop"
-#define MyAppVersion "0.1.2-alpha"
+#define MyAppVersion "0.1.3-alpha"
 #define MyAppPublisher "Spencer"
 #define MyAppURL "https://www.winddine.top/"
 #define MyAppExeName "RaspberryPiDesktop.exe"
