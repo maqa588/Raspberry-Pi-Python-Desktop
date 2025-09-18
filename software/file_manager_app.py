@@ -1,11 +1,9 @@
 import os
 import sys
 
-# --- 自动添加项目根目录到搜索路径 (解决方法二) ---
 current_file_path = os.path.abspath(__file__)
 project_root = os.path.dirname(os.path.dirname(current_file_path))
 sys.path.insert(0, project_root)
-# --- 添加结束 ---
 
 from PIL import Image, ImageTk
 import platform
