@@ -32,8 +32,10 @@ class IconManager:
             # 新增: 在创建图标后，立即更新其文字颜色
             icon_instance.set_label_color(self.label_color)
 
-    def _get_default_layout(self):
+    @staticmethod
+    def _get_default_layout():
         """定义默认的图标布局"""
+        # 注意：因为是静态方法，所以方法签名里没有 self
         return [
             {"id": "terminal", "text": "终端", "icon": "icons/terminal.png", "x": 60, "y": 60},
             {"id": "browser", "text": "浏览器", "icon": "icons/browser.png", "x": 140, "y": 60},
