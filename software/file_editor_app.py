@@ -115,6 +115,10 @@ class FileEditorApp:
 
         save_btn = tk.Button(top_bar_frame, text="保存", command=self.save_file, relief=tk.FLAT, bg="#f0f0f0", activebackground="#e1e1e1")
         save_btn.pack(side=tk.LEFT, padx=5, pady=2)
+
+        # --- 退出按钮 ---
+        quit_btn = tk.Button(top_bar_frame, text="X", command=self.master.quit, relief=tk.FLAT, bg="lightgray", fg="red")
+        quit_btn.pack(side=tk.RIGHT, padx=5)
         
     def create_widgets(self):
         """创建文本框和滚动条"""
