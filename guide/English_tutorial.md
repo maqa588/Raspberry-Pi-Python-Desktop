@@ -6,7 +6,7 @@ Based on my testing, this project does **not** currently support compilation and
 
 If your PC device is an **aarch64 Linux device**, you must include the **picamera2** library to run it (in other words, your SBC needs to support an SPI camera, so that your device can achieve the same effect as running on a Raspberry Pi).
 
-If your PC device is an **non aarch64 Linux device**, Your UI interface and shortcut logic will not be similar to the macOS and Windows but to the specific layout which designed for Raspberry Pi.
+If your PC device is an **non aarch64 Linux device**, Your UI interface and shortcut logic will not be similar to the macOS and Windows but be that to the specific layout which designed for Raspberry Pi.
 
 ---
 
