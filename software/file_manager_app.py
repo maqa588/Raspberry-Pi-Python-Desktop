@@ -51,12 +51,58 @@ class FileManagerApp:
                 self.icon_references[name] = None
 
     def create_menu(self):
-        """用自定义顶部栏替换 Tkinter 菜单栏"""
+        """根据操作系统动态创建菜单栏"""
+        # 检查操作系统是否为 macOS
+        if sys.platform == 'darwin':
+            print("Detected macOS, using default Tkinter menu.")
+            self.create_default_menu()
+        elif sys.platform == 'win32':
+            print("Detected Windows, using default Tkinter menu.")
+            self.create_default_menu()
+        else:
+            print("Detected non-macOS, using custom top bar.")
+            self.create_custom_menu()
+
+    def create_default_menu(self):
+        """创建默认风格的 Tkinter 菜单栏"""
+        self.menubar = tk.Menu(self.master)
+        self.master.config(menu=self.menubar)
+        
+        # --- 关于菜单 ---
+        about_menu = tk.Menu(self.menubar, tearoff=0)
+        self.menubar.add_cascade(label="关于", menu=about_menu)
+        about_menu.add_command(label="系统信息", command=lambda: show_system_about(self.master))
+        about_menu.add_command(label="关于开发者", command=lambda: show_developer_about(self.master))
+        about_menu.add_separator()
+        about_menu.add_command(label="退出", command=self.master.quit)
+        
+        # --- 文件菜单 ---
+        file_menu = tk.Menu(self.menubar, tearoff=0)
+        self.menubar.add_cascade(label="文件", menu=file_menu)
+        file_menu.add_command(label="复制", command=self.show_not_implemented)
+        file_menu.add_command(label="粘贴", command=self.show_not_implemented)
+        file_menu.add_command(label="查看属性", command=self.show_not_implemented)
+        file_menu.add_command(label="删除", command=self.show_not_implemented)
+        file_menu.add_separator()
+        file_menu.add_command(label="新建文件夹", command=self.create_new_folder)
+        
+        # --- 格式菜单 ---
+        format_menu = tk.Menu(self.menubar, tearoff=0)
+        self.menubar.add_cascade(label="格式", menu=format_menu)
+        format_menu.add_command(label="修改排列格式", command=self.show_not_implemented)
+        
+        # --- 导航按钮 ---
+        self.menubar.add_command(label="向后", command=self.go_back)
+        self.menubar.add_command(label="向前", command=self.go_forward)
+        self.menubar.add_command(label="刷新", command=self.refresh)
+
+    def create_custom_menu(self):
+        """创建自定义顶部栏（非 macOS 风格）"""
         # 创建一个 Frame 作为自定义顶部栏的容器
         top_bar_frame = tk.Frame(self.master, bg="lightgray", height=30)
         top_bar_frame.pack(side=tk.TOP, fill=tk.X)
 
-        # --- 关于菜单 ---
+        # --- 关于菜单按钮 ---
         about_mb = tk.Menubutton(top_bar_frame, text="关于", activebackground="gray", bg="lightgray")
         about_mb.pack(side=tk.LEFT, padx=5)
         about_menu = tk.Menu(about_mb, tearoff=0)
@@ -66,7 +112,7 @@ class FileManagerApp:
         about_menu.add_command(label="退出", command=self.master.quit)
         about_mb.config(menu=about_menu)
 
-        # --- 文件菜单 ---
+        # --- 文件菜单按钮 ---
         file_mb = tk.Menubutton(top_bar_frame, text="文件", activebackground="gray", bg="lightgray")
         file_mb.pack(side=tk.LEFT, padx=5)
         file_menu = tk.Menu(file_mb, tearoff=0)
@@ -78,7 +124,7 @@ class FileManagerApp:
         file_menu.add_command(label="新建文件夹", command=self.create_new_folder)
         file_mb.config(menu=file_menu)
 
-        # --- 格式菜单 ---
+        # --- 格式菜单按钮 ---
         format_mb = tk.Menubutton(top_bar_frame, text="格式", activebackground="gray", bg="lightgray")
         format_mb.pack(side=tk.LEFT, padx=5)
         format_menu = tk.Menu(format_mb, tearoff=0)

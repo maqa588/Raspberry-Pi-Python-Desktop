@@ -64,7 +64,61 @@ class FileEditorApp:
                  messagebox.showerror("错误", f"无效的文件路径: {file_to_open}")
 
     def create_menu(self):
-        """用自定义顶部栏替换 Tkinter 菜单栏"""
+        """根据操作系统动态创建菜单栏"""
+        # 检查操作系统是否为 macOS
+        if sys.platform == 'darwin':
+            print("Detected macOS, using default Tkinter menu.")
+            self.create_default_menu()
+        elif sys.platform == 'win32':
+            print("Detected Windows, using default Tkinter menu.")
+            self.create_default_menu()
+        else:
+            print("Detected non-macOS, using custom top bar.")
+            self.create_custom_menu()
+
+    def create_default_menu(self):
+        """创建默认风格的 Tkinter 菜单栏"""
+        self.menubar = tk.Menu(self.master)
+        self.master.config(menu=self.menubar)
+
+        # --- 关于菜单 ---
+        about_menu = tk.Menu(self.menubar, tearoff=0)
+        self.menubar.add_cascade(label="关于", menu=about_menu)
+        about_menu.add_command(label="系统信息", command=lambda: show_system_about(self.master))
+        about_menu.add_command(label="关于开发者", command=lambda: show_developer_about(self.master))
+        about_menu.add_separator()
+        about_menu.add_command(label="退出", command=self.on_closing)
+
+        # --- 文件菜单 ---
+        file_menu = tk.Menu(self.menubar, tearoff=0)
+        self.menubar.add_cascade(label="文件", menu=file_menu)
+        file_menu.add_command(label="打开...", command=self.open_file)
+        file_menu.add_command(label="保存", command=self.save_file)
+        file_menu.add_command(label="另存为...", command=self.save_file_as)
+        file_menu.add_separator()
+        file_menu.add_command(label="复制", command=self.copy_text)
+        file_menu.add_command(label="粘贴", command=self.paste_text)
+        file_menu.add_separator()
+        file_menu.add_command(label="查看字数", command=self.show_word_count)
+        file_menu.add_command(label="查看编码格式", command=self.show_encoding)
+
+        # --- 格式菜单 ---
+        format_menu = tk.Menu(self.menubar, tearoff=0)
+        self.menubar.add_cascade(label="格式", menu=format_menu)
+        format_menu.add_command(label="字体大小", command=self.change_font_size)
+        format_menu.add_command(label="字体颜色", command=self.change_font_color)
+        style_menu = tk.Menu(format_menu, tearoff=0)
+        format_menu.add_cascade(label="字体样式", menu=style_menu)
+        style_menu.add_checkbutton(label="加粗", onvalue=True, offvalue=False, variable=self.is_bold, command=self.toggle_bold)
+        style_menu.add_checkbutton(label="下划线", onvalue=True, offvalue=False, variable=self.is_underline, command=self.toggle_underline)
+        
+        # --- 普通命令 ---
+        self.menubar.add_command(label="撤销", command=self.undo_text)
+        self.menubar.add_command(label="刷新", command=self.refresh_file)
+        self.menubar.add_command(label="保存", command=self.save_file)
+
+    def create_custom_menu(self):
+        """创建自定义顶部栏（非 macOS 风格）"""
         top_bar_frame = tk.Frame(self.master, bg="#f0f0f0", height=30, bd=1, relief=tk.RAISED)
         top_bar_frame.pack(side=tk.TOP, fill=tk.X)
 
@@ -101,7 +155,6 @@ class FileEditorApp:
         format_menu.add_command(label="字体颜色", command=self.change_font_color)
         style_menu = tk.Menu(format_menu, tearoff=0)
         format_menu.add_cascade(label="字体样式", menu=style_menu)
-        # 现在这里使用 self.is_bold 不会报错，因为它已在 __init__ 中创建
         style_menu.add_checkbutton(label="加粗", onvalue=True, offvalue=False, variable=self.is_bold, command=self.toggle_bold)
         style_menu.add_checkbutton(label="下划线", onvalue=True, offvalue=False, variable=self.is_underline, command=self.toggle_underline)
         format_mb.config(menu=format_menu)
@@ -117,8 +170,8 @@ class FileEditorApp:
         save_btn.pack(side=tk.LEFT, padx=5, pady=2)
 
         # --- 退出按钮 ---
-        quit_btn = tk.Button(top_bar_frame, text="X", command=self.master.quit, relief=tk.FLAT, bg="lightgray", fg="red")
-        quit_btn.pack(side=tk.RIGHT, padx=5)
+        quit_btn = tk.Button(top_bar_frame, text="X", command=self.on_closing, relief=tk.FLAT, bg="#f0f0f0", fg="red", activebackground="#e1e1e1")
+        quit_btn.pack(side=tk.RIGHT, padx=5, pady=2)
         
     def create_widgets(self):
         """创建文本框和滚动条"""
