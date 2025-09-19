@@ -4,20 +4,13 @@ import os
 import sys
 import chardet
 
-# 动态添加项目根目录到 sys.path
-# 这使得脚本无论从哪里运行都能找到 system 模块
-try:
-    current_file_path = os.path.abspath(__file__)
-    project_root = os.path.dirname(os.path.dirname(current_file_path))
-    if project_root not in sys.path:
-        sys.path.insert(0, project_root)
-    from system.config import WINDOW_WIDTH, WINDOW_HEIGHT
-    from system.button.about import show_system_about, show_developer_about
-except ImportError:
-    # 如果作为独立脚本运行，提供默认值
-    WINDOW_WIDTH, WINDOW_HEIGHT = 480, 320
-    def show_system_about(master): messagebox.showinfo("系统信息", "这是一个独立的应用程序。")
-    def show_developer_about(master): messagebox.showinfo("开发者", "代码由AI和您共同完成。")
+current_file_path = os.path.abspath(__file__)
+project_root = os.path.dirname(os.path.dirname(current_file_path))
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
+
+from system.config import WINDOW_WIDTH, WINDOW_HEIGHT
+from system.button.about import show_system_about, show_developer_about
 
 
 class FileEditorApp:
