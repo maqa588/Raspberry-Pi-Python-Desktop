@@ -113,7 +113,6 @@ class FileEditorApp:
         file_menu.add_separator()
         file_menu.add_command(label="撤销", command=self.undo_text, accelerator=undo_key)
         file_menu.add_command(label="刷新", command=self.refresh_file)
-        file_menu.add_command(label="保存", command=self.save_file, accelerator=save_key)  # 重复的保存命令
 
         # --- 格式菜单 ---
         format_menu = tk.Menu(self.menubar, tearoff=0)
