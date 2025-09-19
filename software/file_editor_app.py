@@ -94,6 +94,10 @@ class FileEditorApp:
         file_menu.add_separator()
         file_menu.add_command(label="查看字数", command=self.show_word_count)
         file_menu.add_command(label="查看编码格式", command=self.show_encoding)
+        file_menu.add_separator()
+        file_menu.add_command(label="撤销", command=self.undo_text)
+        file_menu.add_command(label="刷新", command=self.refresh_file)
+        file_menu.add_command(label="保存", command=self.save_file)
 
         # --- 格式菜单 ---
         format_menu = tk.Menu(self.menubar, tearoff=0)
@@ -105,11 +109,6 @@ class FileEditorApp:
         style_menu.add_checkbutton(label="加粗", onvalue=True, offvalue=False, variable=self.is_bold, command=self.toggle_bold)
         style_menu.add_checkbutton(label="下划线", onvalue=True, offvalue=False, variable=self.is_underline, command=self.toggle_underline)
         
-        # --- 普通命令 ---
-        self.menubar.add_command(label="撤销", command=self.undo_text)
-        self.menubar.add_command(label="刷新", command=self.refresh_file)
-        self.menubar.add_command(label="保存", command=self.save_file)
-
     def create_custom_menu(self):
         """创建自定义顶部栏（非 macOS 风格）"""
         top_bar_frame = tk.Frame(self.master, bg="#f0f0f0", height=30, bd=1, relief=tk.RAISED)

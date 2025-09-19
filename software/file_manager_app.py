@@ -95,6 +95,8 @@ class FileManagerApp:
         # --- 文件菜单 ---
         file_menu = tk.Menu(self.menubar, tearoff=0)
         self.menubar.add_cascade(label="文件", menu=file_menu)
+        file_menu.add_command(label="打开", command=self.on_double_click)
+        file_menu.add_separator()
         file_menu.add_command(label="复制", command=self.copy_item)
         file_menu.add_command(label="粘贴", command=self.paste_item)
         file_menu.add_command(label="查看属性", command=self.show_properties)
@@ -111,9 +113,11 @@ class FileManagerApp:
         sort_menu.add_command(label="按文件大小排序", command=self.sort_by_size)
         
         # --- 导航按钮 ---
-        self.menubar.add_command(label="向后", command=self.go_back)
-        self.menubar.add_command(label="向前", command=self.go_forward)
-        self.menubar.add_command(label="刷新", command=self.refresh)
+        navigate_menu = tk.Menu(self.menubar, tearoff=0)
+        self.menubar.add_cascade(label="导航", menu=navigate_menu)
+        navigate_menu.add_command(label="向后", command=self.go_back)
+        navigate_menu.add_command(label="向前", command=self.go_forward)
+        navigate_menu.add_command(label="刷新", command=self.refresh)
 
     def create_custom_menu(self):
         """创建自定义顶部栏（非 macOS/Windows 风格）"""
@@ -134,6 +138,8 @@ class FileManagerApp:
         file_mb = tk.Menubutton(top_bar_frame, text="文件", activebackground="gray", bg="lightgray")
         file_mb.pack(side=tk.LEFT, padx=5)
         file_menu = tk.Menu(file_mb, tearoff=0)
+        file_menu.add_command(label="打开", command=self.on_double_click)
+        file_menu.add_separator()
         file_menu.add_command(label="复制", command=self.copy_item)
         file_menu.add_command(label="粘贴", command=self.paste_item)
         file_menu.add_command(label="查看属性", command=self.show_properties)
@@ -313,9 +319,15 @@ class FileManagerApp:
             messagebox.showerror("启动失败", f"启动文件编辑器时发生未知错误：{e}")
             return False
         
-    def on_double_click(self, event):
-        item_id = self.tree.focus()
+    def on_double_click(self, event=None):
+        """
+        处理双击或菜单“打开”事件。
+        使用 self.tree.focus() 来获取当前选中的项目，使其不依赖于 event 对象。
+        """
+        # --- 修改部分：不再使用 event.y，而是获取当前焦点项 ---
+        item_id = self.tree.focus() 
         if not item_id:
+            # 如果没有任何项目被选中，则不执行任何操作
             return
 
         item = self.tree.item(item_id)
@@ -346,7 +358,7 @@ class FileManagerApp:
                 if icon_key == "editor":
                     self.open_document_in_editor(full_path)
                 else:
-                    # 对于其他文件，可以尝试用系统默认程序打开
+                    # 对于其他文件，尝试用系统默认程序打开
                     try:
                         if sys.platform == "win32":
                             os.startfile(full_path)
