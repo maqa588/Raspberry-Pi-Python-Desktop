@@ -83,6 +83,24 @@ class FileManagerApp:
         """创建默认风格的 Tkinter 菜单栏"""
         self.menubar = tk.Menu(self.master)
         self.master.config(menu=self.menubar)
+
+        # --- 根据操作系统设置不同的修饰键 ---
+        if sys.platform == 'darwin':  # macOS
+            copy_key = "Command-c"
+            paste_key = "Command-v"
+            delete_key = "Command-d"
+            refresh_key = "Command-r"
+            back_key = "Command-Left"
+            forward_key = "Command-Right"
+            open_key = "Command-o"
+        else:  # Windows 或 Linux
+            copy_key = "Ctrl-c"
+            paste_key = "Ctrl-v"
+            delete_key = "Del"  # 或 "Delete"
+            refresh_key = "F5"
+            back_key = "Alt-Left"
+            forward_key = "Alt-Right"
+            open_key = "Ctrl-o"
         
         # --- 关于菜单 ---
         about_menu = tk.Menu(self.menubar, tearoff=0)
@@ -91,16 +109,16 @@ class FileManagerApp:
         about_menu.add_command(label="关于开发者", command=lambda: show_developer_about(self.master))
         about_menu.add_separator()
         about_menu.add_command(label="退出", command=self.master.quit)
-        
+
         # --- 文件菜单 ---
         file_menu = tk.Menu(self.menubar, tearoff=0)
         self.menubar.add_cascade(label="文件", menu=file_menu)
-        file_menu.add_command(label="打开", command=self.on_double_click)
+        file_menu.add_command(label="打开", command=self.on_double_click, accelerator=open_key)
         file_menu.add_separator()
-        file_menu.add_command(label="复制", command=self.copy_item)
-        file_menu.add_command(label="粘贴", command=self.paste_item)
+        file_menu.add_command(label="复制", command=self.copy_item, accelerator=copy_key)
+        file_menu.add_command(label="粘贴", command=self.paste_item, accelerator=paste_key)
         file_menu.add_command(label="查看属性", command=self.show_properties)
-        file_menu.add_command(label="删除", command=self.delete_item)
+        file_menu.add_command(label="删除", command=self.delete_item, accelerator=delete_key)
         file_menu.add_separator()
         file_menu.add_command(label="新建文件夹", command=self.create_new_folder)
         
@@ -115,9 +133,29 @@ class FileManagerApp:
         # --- 导航按钮 ---
         navigate_menu = tk.Menu(self.menubar, tearoff=0)
         self.menubar.add_cascade(label="导航", menu=navigate_menu)
-        navigate_menu.add_command(label="向后", command=self.go_back)
-        navigate_menu.add_command(label="向前", command=self.go_forward)
-        navigate_menu.add_command(label="刷新", command=self.refresh)
+        navigate_menu.add_command(label="向后", command=self.go_back, accelerator=back_key)
+        navigate_menu.add_command(label="向前", command=self.go_forward, accelerator=forward_key)
+        navigate_menu.add_command(label="刷新", command=self.refresh, accelerator=refresh_key)
+
+        # --- 绑定快捷键 ---
+        # Windows/Linux 绑定
+        self.master.bind_all('<Control-c>', lambda event: self.copy_item())
+        self.master.bind_all('<Control-v>', lambda event: self.paste_item())
+        self.master.bind_all('<Delete>', lambda event: self.delete_item())
+        self.master.bind_all('<F5>', lambda event: self.refresh())
+        self.master.bind_all('<Alt-Left>', lambda event: self.go_back())
+        self.master.bind_all('<Alt-Right>', lambda event: self.go_forward())
+        self.master.bind_all('<Control-o>', lambda event: self.on_double_click())
+
+        # macOS 绑定
+        if sys.platform == 'darwin':
+            self.master.bind_all('<Command-c>', lambda event: self.copy_item())
+            self.master.bind_all('<Command-v>', lambda event: self.paste_item())
+            self.master.bind_all('<Command-d>', lambda event: self.delete_item())
+            self.master.bind_all('<Command-r>', lambda event: self.refresh())
+            self.master.bind_all('<Command-Left>', lambda event: self.go_back())
+            self.master.bind_all('<Command-Right>', lambda event: self.go_forward())
+            self.master.bind_all('<Command-o>', lambda event: self.on_double_click())
 
     def create_custom_menu(self):
         """创建自定义顶部栏（非 macOS/Windows 风格）"""

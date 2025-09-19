@@ -74,6 +74,21 @@ class FileEditorApp:
         self.menubar = tk.Menu(self.master)
         self.master.config(menu=self.menubar)
 
+        # --- 快捷键绑定 ---
+        # 根据操作系统设置不同的修饰键
+        if sys.platform == 'darwin':  # macOS
+            save_key = "Command-s"
+            open_key = "Command-o"
+            copy_key = "Command-c"
+            paste_key = "Command-v"
+            undo_key = "Command-z"
+        else:  # Windows 或 Linux
+            save_key = "Ctrl-s"
+            open_key = "Ctrl-o"
+            copy_key = "Ctrl-c"
+            paste_key = "Ctrl-v"
+            undo_key = "Ctrl-z"
+
         # --- 关于菜单 ---
         about_menu = tk.Menu(self.menubar, tearoff=0)
         self.menubar.add_cascade(label="关于", menu=about_menu)
@@ -85,19 +100,20 @@ class FileEditorApp:
         # --- 文件菜单 ---
         file_menu = tk.Menu(self.menubar, tearoff=0)
         self.menubar.add_cascade(label="文件", menu=file_menu)
-        file_menu.add_command(label="打开...", command=self.open_file)
-        file_menu.add_command(label="保存", command=self.save_file)
+        # 为菜单命令添加快捷键提示（accelerator）
+        file_menu.add_command(label="打开...", command=self.open_file, accelerator=open_key)
+        file_menu.add_command(label="保存", command=self.save_file, accelerator=save_key)
         file_menu.add_command(label="另存为...", command=self.save_file_as)
         file_menu.add_separator()
-        file_menu.add_command(label="复制", command=self.copy_text)
-        file_menu.add_command(label="粘贴", command=self.paste_text)
+        file_menu.add_command(label="复制", command=self.copy_text, accelerator=copy_key)
+        file_menu.add_command(label="粘贴", command=self.paste_text, accelerator=paste_key)
         file_menu.add_separator()
         file_menu.add_command(label="查看字数", command=self.show_word_count)
         file_menu.add_command(label="查看编码格式", command=self.show_encoding)
         file_menu.add_separator()
-        file_menu.add_command(label="撤销", command=self.undo_text)
+        file_menu.add_command(label="撤销", command=self.undo_text, accelerator=undo_key)
         file_menu.add_command(label="刷新", command=self.refresh_file)
-        file_menu.add_command(label="保存", command=self.save_file)
+        file_menu.add_command(label="保存", command=self.save_file, accelerator=save_key)  # 重复的保存命令
 
         # --- 格式菜单 ---
         format_menu = tk.Menu(self.menubar, tearoff=0)
@@ -109,6 +125,21 @@ class FileEditorApp:
         style_menu.add_checkbutton(label="加粗", onvalue=True, offvalue=False, variable=self.is_bold, command=self.toggle_bold)
         style_menu.add_checkbutton(label="下划线", onvalue=True, offvalue=False, variable=self.is_underline, command=self.toggle_underline)
         
+        # 在主窗口上绑定快捷键
+        self.master.bind_all('<Control-s>', lambda event: self.save_file())
+        self.master.bind_all('<Control-o>', lambda event: self.open_file())
+        self.master.bind_all('<Control-c>', lambda event: self.copy_text())
+        self.master.bind_all('<Control-v>', lambda event: self.paste_text())
+        self.master.bind_all('<Control-z>', lambda event: self.undo_text())
+
+        # macOS 特有的绑定
+        if sys.platform == 'darwin':
+            self.master.bind_all('<Command-s>', lambda event: self.save_file())
+            self.master.bind_all('<Command-o>', lambda event: self.open_file())
+            self.master.bind_all('<Command-c>', lambda event: self.copy_text())
+            self.master.bind_all('<Command-v>', lambda event: self.paste_text())
+            self.master.bind_all('<Command-z>', lambda event: self.undo_text())
+
     def create_custom_menu(self):
         """创建自定义顶部栏（非 macOS 风格）"""
         top_bar_frame = tk.Frame(self.master, bg="#f0f0f0", height=30, bd=1, relief=tk.RAISED)
