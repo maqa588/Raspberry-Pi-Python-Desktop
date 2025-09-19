@@ -1,10 +1,12 @@
-## macOS，Windows，Linux X86 等 PC 客户端部署教程
+## macOS，Windows Linux 等 PC 客户端部署教程
 
 ### 前情提要
 
 根据我的测试，本项目暂时不支持 Windows On Arm 的编译与运行（主要原因是 Qt5 编译较为复杂），请在 **Windows X86 环境** 下运行。
 
 如果你的 PC 设备是 **aarch64 架构的 Linux 设备**，则必须引入 **picamera2** 库才能运行（也就是说，你的单板计算机需要支持 SPI 摄像头，这样才能实现与树莓派上运行相同的效果）。
+
+如果你的 PC 设备是 **Linux 非aarch64 架构的 Linux 设备**，您的UI布局和快捷键模式会和macOS，Windows不同，会更倾向于我向树莓派专门设计的布局。
 
 ---
 
