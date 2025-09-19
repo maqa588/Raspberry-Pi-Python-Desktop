@@ -16,11 +16,11 @@ if project_root not in sys.path:
 from system.config import WINDOW_WIDTH, WINDOW_HEIGHT
 from system.button.about import show_system_about, show_developer_about
 
-
 class FileManagerApp:
     def __init__(self, master):
         self.master = master
         self.master.title("文件管理器")
+        self.project_root = Path(__file__).resolve().parent.parent
         self.master.geometry(f"{WINDOW_WIDTH}x{WINDOW_HEIGHT}")
 
         self.current_path = Path.home()
@@ -288,17 +288,30 @@ class FileManagerApp:
         return "file"
     
     def open_document_in_editor(self, file_path: Path):
+        """为指定的文件路径启动外部文本编辑器子进程。"""
         try:
             main_executable = sys.executable
+            # 必须将 Path 对象转换为字符串才能传递给子进程
             file_path_str = str(file_path)
+
             if getattr(sys, 'frozen', False):
+                # 如果是 PyInstaller 打包后的环境
+                # 我们假设主程序可以处理 "file_editor_only" 和一个文件路径参数
                 command = [main_executable, "file_editor_only", file_path_str]
             else:
-                editor_script_path = Path(__file__).parent / 'software' / 'file_editor_app.py'
+                # 如果是直接用 Python 运行的开发环境
+                # --- 这是修改的核心部分 ---
+                # 使用 self.project_root 构建绝对路径，避免相对路径问题
+                editor_script_path = self.project_root / 'software' / 'file_editor_app.py'
                 command = [main_executable, str(editor_script_path), file_path_str]
+            
+            # 启动子进程，不阻塞主程序
             subprocess.Popen(command)
+            return True
+
         except Exception as e:
             messagebox.showerror("启动失败", f"启动文件编辑器时发生未知错误：{e}")
+            return False
         
     def on_double_click(self, event):
         item_id = self.tree.focus()
