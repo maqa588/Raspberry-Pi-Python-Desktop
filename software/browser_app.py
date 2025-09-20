@@ -145,7 +145,7 @@ class BrowserFrame(wx.Frame):
 
         # 主页
         # 自定义 ID
-        mi_home = file_menu.Append(wx.NewId(), "主页\tCtrl+H", "跳到主页")
+        mi_home = file_menu.Append(wx.NewIdRef(), "主页\tCtrl+H", "跳到主页")
 
         # 分隔线
         file_menu.AppendSeparator()
