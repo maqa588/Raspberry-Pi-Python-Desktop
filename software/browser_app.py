@@ -16,24 +16,21 @@ else:
     WINDOW_HEIGHT = 600
     FRAMELESS = False
 
-
 # -----------------------
-# Windows: WebView2 路径查找
+# WebView2 路径查找
 # -----------------------
 def find_webview2_dll():
     possible_paths = [
         os.path.join(os.environ.get("ProgramFiles(x86)", ""), "Microsoft", "EdgeWebView", "Application", "WebView2Loader.dll"),
         os.path.join(os.environ.get("ProgramFiles", ""), "Microsoft", "EdgeWebView", "Application", "WebView2Loader.dll"),
-        "WebView2Loader.dll",  # 有时就在当前目录
+        "WebView2Loader.dll",
     ]
     for path in possible_paths:
         if os.path.exists(path):
             return path
     return None
 
-
 def setup_webview_backend():
-    """根据平台选择合适的 WebView backend"""
     if sys.platform.startswith("win"):
         webview2_path = find_webview2_dll()
         if webview2_path:
@@ -49,30 +46,28 @@ def setup_webview_backend():
 
     elif sys.platform == "darwin":
         print("🍎 macOS 使用系统 WebKit")
-        return True  # 系统自带
+        return True
 
     elif sys.platform.startswith("linux"):
         print("🐧 Linux 使用 WebKitGTK (需安装 libwebkit2gtk)")
-        return True  # 系统自带
+        return True
 
     else:
         print("未知平台，尝试默认 backend")
         return False
 
-
 EDGE_AVAILABLE = setup_webview_backend()
 
-
-# -----------------------
-# 浏览器窗口
-# -----------------------
 class BrowserFrame(wx.Frame):
     def __init__(self):
         style = wx.DEFAULT_FRAME_STYLE
         if FRAMELESS:
             style = wx.NO_BORDER
 
-        super().__init__(None, title="Browser", size=(WINDOW_WIDTH, WINDOW_HEIGHT), style=style)
+        super().__init__(None, title="Maqa Browser", size=(WINDOW_WIDTH, WINDOW_HEIGHT), style=style)
+
+        # --- 新增：创建菜单栏 ---
+        self.create_menu_bar()
 
         panel = wx.Panel(self)
         vbox = wx.BoxSizer(wx.VERTICAL)
@@ -99,7 +94,7 @@ class BrowserFrame(wx.Frame):
 
         vbox.Add(toolbar, flag=wx.EXPAND | wx.ALL, border=6)
 
-        # WebView
+        # WebView 部分
         try:
             if EDGE_AVAILABLE and sys.platform.startswith("win"):
                 self.browser = webview.WebView.New(panel, backend=webview.WebViewBackendEdge)
@@ -139,9 +134,43 @@ class BrowserFrame(wx.Frame):
         self.load_url(self.home_url)
         wx.CallAfter(self.update_nav_buttons)
 
-    # -----------------------
-    # 浏览器相关逻辑
-    # -----------------------
+    def create_menu_bar(self):
+        menubar = wx.MenuBar()
+
+        file_menu = wx.Menu()
+
+        # 刷新
+        # 使用标准 ID 或自定义 ID
+        mi_refresh = file_menu.Append(wx.ID_REFRESH, "刷新\tCtrl+R", "刷新当前页面")
+
+        # 主页
+        # 自定义 ID
+        mi_home = file_menu.Append(wx.NewId(), "主页\tCtrl+H", "跳到主页")
+
+        # 分隔线
+        file_menu.AppendSeparator()
+
+        # 退出
+        mi_exit = file_menu.Append(wx.ID_EXIT, "退出\tCtrl+Q", "退出程序")
+
+        menubar.Append(file_menu, "文件")
+
+        self.SetMenuBar(menubar)
+
+        # 绑定菜单事件
+        self.Bind(wx.EVT_MENU, self.on_reload, mi_refresh)
+        self.Bind(wx.EVT_MENU, self.on_home, mi_home)
+        self.Bind(wx.EVT_MENU, self.on_quit, mi_exit)
+
+        # macOS: 常见约定 “退出” 用 Cmd+Q
+        # Windows/Linux: Ctrl+Q
+        # wx will parse "\tCtrl+Q" 或 "\tCmd+Q" label 来显示快捷键，并通常自动处理 Command key 在 macOS
+        # 如果你想强制支持 Cmd 在 macOS，也可以用 AcceleratorTable
+
+    def on_quit(self, event):
+        self.Close()
+
+    # 你原来的事件和方法保持不变
     def normalize_url(self, url: str) -> str:
         url = url.strip()
         if not url:
@@ -180,6 +209,7 @@ class BrowserFrame(wx.Frame):
             pass
 
     def on_reload(self, evt):
+        # 用菜单“刷新”触发的也调用这个
         try:
             self.browser.Reload()
         except Exception:
@@ -231,16 +261,11 @@ class BrowserFrame(wx.Frame):
         self.btn_back.Enable(can_back)
         self.btn_forward.Enable(can_forward)
 
-
-# -----------------------
-# 启动
-# -----------------------
 def create_browser_window():
     app = wx.App(False)
     frame = BrowserFrame()
     frame.Show()
     app.MainLoop()
-
 
 if __name__ == "__main__":
     create_browser_window()
