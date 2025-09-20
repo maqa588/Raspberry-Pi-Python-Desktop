@@ -64,6 +64,9 @@ class UIManager:
         self.refresh_btn = tk.Button(top_bar_frame, text="刷新", relief=tk.FLAT, bg="lightgray")
         self.refresh_btn.pack(side=tk.LEFT, padx=5)
 
+        self.quit_btn = tk.Button(top_bar_frame, text="X", command=self.master.quit, relief=tk.FLAT, bg="#f0f0f0", fg="red", activebackground="#e1e1e1")
+        self.quit_btn.pack(side=tk.RIGHT, padx=5, pady=2)
+
     def _create_widgets(self):
         """创建文件列表视图。"""
         path_entry = ttk.Entry(self.master, textvariable=self.path_var, state='readonly')

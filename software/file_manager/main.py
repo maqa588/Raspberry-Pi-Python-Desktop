@@ -2,7 +2,7 @@ import sys
 import tkinter as tk
 from pathlib import Path
 
-# 导入配置文件，注意路径需要适应新的结构
+# 从 system 包导入核心组件
 current_file_path = Path(__file__).resolve()
 project_root = current_file_path.parent.parent.parent
 if str(project_root) not in sys.path:
@@ -16,16 +16,19 @@ from .logic_manager import LogicManager
 from .icon_loader import IconLoader
 
 class FileManagerApp:
-    def __init__(self, master):
+    def __init__(self, master, project_root):
         self.master = master
         self.master.title("文件管理器")
         self.master.geometry(f"{WINDOW_WIDTH}x{WINDOW_HEIGHT}")
         
+        # 将项目根目录存储为实例属性
+        self.project_root = project_root
+        
         # 实例化图标加载器
         self.icon_loader = IconLoader()
         self.icon_references = self.icon_loader.load_icons()
-        self.property_window_icon = None # 确保属性窗口的图标不被回收
-        self.photo_image_references = [] # 防止图片被垃圾回收
+        self.property_window_icon = None
+        self.photo_image_references = []
 
         # 实例化UI和逻辑管理器，并传入必要的参数
         self.ui_manager = UIManager(self.master, self.icon_references)
@@ -53,5 +56,7 @@ class FileManagerApp:
 
 if __name__ == '__main__':
     root = tk.Tk()
-    app = FileManagerApp(root)
+    # 动态获取项目根目录并传入
+    app_project_root = Path(__file__).resolve().parent.parent.parent
+    app = FileManagerApp(root, app_project_root)
     root.mainloop()
