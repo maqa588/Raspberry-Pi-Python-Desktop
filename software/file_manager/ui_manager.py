@@ -23,8 +23,7 @@ class UIManager:
         """创建默认风格的 Tkinter 菜单栏。"""
         self.menubar = tk.Menu(self.master)
         self.master.config(menu=self.menubar)
-        # 菜单项将被逻辑管理器中的方法填充
-        # 这里只创建菜单骨架
+        
         self.file_menu = tk.Menu(self.menubar, tearoff=0)
         self.menubar.add_cascade(label="文件", menu=self.file_menu)
         
@@ -43,7 +42,6 @@ class UIManager:
 
     def _create_custom_menu(self):
         """创建自定义顶部栏（非 macOS/Windows 风格）。"""
-        # ... (与原文件管理器中的 `create_custom_menu` 逻辑相同，但需要绑定到 bind_commands)
         top_bar_frame = tk.Frame(self.master, bg="lightgray", height=30)
         top_bar_frame.pack(side=tk.TOP, fill=tk.X)
         self.file_mb = tk.Menubutton(top_bar_frame, text="文件", activebackground="gray", bg="lightgray")
@@ -56,7 +54,6 @@ class UIManager:
         self.sort_menu = tk.Menu(self.sort_mb, tearoff=0)
         self.sort_mb.config(menu=self.sort_menu)
         
-        # 导航按钮
         self.back_btn = tk.Button(top_bar_frame, text="向后", relief=tk.FLAT, bg="lightgray")
         self.back_btn.pack(side=tk.LEFT, padx=5)
         self.forward_btn = tk.Button(top_bar_frame, text="向前", relief=tk.FLAT, bg="lightgray")
@@ -94,13 +91,9 @@ class UIManager:
         tree_frame.grid_columnconfigure(0, weight=1)
     
     def bind_commands(self, commands):
-        """
-        绑定命令到 UI 元素。
-        `commands` 是一个字典，键是命令名，值是方法。
-        """
-        # --- 菜单绑定 ---
+        """绑定命令到 UI 元素。"""
         if self.master.cget('menu'):
-            # 默认菜单
+            # 默认菜单 (macOS/Windows)
             self.file_menu.add_command(label="打开", command=commands['on_double_click'])
             self.file_menu.add_separator()
             self.file_menu.add_command(label="复制", command=commands['copy'])
@@ -120,14 +113,27 @@ class UIManager:
             self.navigate_menu.add_command(label="刷新", command=commands['refresh'])
 
         else:
-            # 自定义菜单
+            # 自定义菜单 (树莓派)
             self.file_menu.add_command(label="打开", command=commands['on_double_click'])
-            # ... (其他自定义菜单的绑定)
+            self.file_menu.add_separator()
+            self.file_menu.add_command(label="复制", command=commands['copy'])
+            self.file_menu.add_command(label="粘贴", command=commands['paste'])
+            self.file_menu.add_command(label="查看属性", command=commands['properties'])
+            self.file_menu.add_command(label="删除", command=commands['delete'])
+            self.file_menu.add_separator()
+            self.file_menu.add_command(label="新建文件夹", command=commands['new_folder'])
+            
+            # --- 修复点：为自定义排序菜单添加命令 ---
+            self.sort_menu.add_command(label="按名称排序", command=commands['sort_name'])
+            self.sort_menu.add_command(label="按种类排序", command=commands['sort_category'])
+            self.sort_menu.add_command(label="按修改日期排序", command=commands['sort_date'])
+            self.sort_menu.add_command(label="按文件大小排序", command=commands['sort_size'])
+            # --- 修复点结束 ---
+            
             self.back_btn.config(command=commands['go_back'])
             self.forward_btn.config(command=commands['go_forward'])
             self.refresh_btn.config(command=commands['refresh'])
 
-        # --- Treeview 和快捷键绑定 ---
         self.tree.bind("<Double-1>", commands['on_double_click'])
         self._bind_hotkeys(commands)
 
