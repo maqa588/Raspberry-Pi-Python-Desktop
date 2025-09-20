@@ -47,6 +47,10 @@ class BrowserFrame(wx.Frame):
         self.btn_go = wx.Button(panel, label="Go")
         toolbar.Add(self.btn_go, flag=wx.ALIGN_CENTER_VERTICAL | wx.LEFT, border=6)
 
+        if sys.platform.startswith('linux'):
+            self.btn_close = wx.Button(panel, label="X")
+            toolbar.Add(self.btn_close, flag=wx.ALIGN_CENTER_VERTICAL | wx.LEFT, border=6)
+
         vbox.Add(toolbar, flag=wx.EXPAND | wx.ALL, border=6)
 
         # WebView 容器（兼容不同 wxPython 版本的构造）
