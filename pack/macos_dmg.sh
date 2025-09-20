@@ -1,3 +1,15 @@
+#!/bin/bash
+
+# 定义要生成的 .dmg 文件名
+DMG_FILE="Raspberry Pi Desktop.dmg"
+
+# 检查 .dmg 文件是否存在，如果存在则删除
+if [ -f "$DMG_FILE" ]; then
+    echo "检测到旧的 .dmg 文件，正在删除..."
+    rm "$DMG_FILE"
+fi
+
+# 执行 create-dmg 命令
 create-dmg \
   --volname "Raspberry Pi Desktop Installer" \
   --background "macos_background.png" \
@@ -7,5 +19,7 @@ create-dmg \
   --icon "Raspberry Pi Desktop.app" 170 190 \
   --hide-extension "Raspberry Pi Desktop.app" \
   --app-drop-link 430 190 \
-  "Raspberry Pi Desktop.dmg" \
-  "dist/Raspberry Pi Desktop.app" 
+  "$DMG_FILE" \
+  "dist/Raspberry Pi Desktop.app"
+
+echo "DMG 文件已成功生成！"
