@@ -1,8 +1,1 @@
-pyinstaller --noconfirm \
---name "Raspberry Pi Desktop" \
---windowed \
---onedir \
---add-data "../icons:icons" \
---add-data "../software:software" \
---add-data "../system:system" \
-../app.py
+pyinstaller --noconfirm --clean pyinstaller_all.spec
