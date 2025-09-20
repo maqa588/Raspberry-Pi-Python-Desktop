@@ -1,4 +1,3 @@
-# system/app_logic.py
 import tkinter as tk
 import threading
 from tkinter import messagebox
@@ -8,27 +7,20 @@ import psutil
 from PIL import Image, ImageTk
 import os
 
-from software.terminal import open_terminal_system
-from software.browser import open_browser_system
-from software.file_manager import open_file_manager
-from software.file_editor import open_file_editor
-from software.camera import open_camera_system
-
 class LogicHandler:
-    # 构造函数现在接收 app_instance, icon_manager 和 ui 的引用
-    def __init__(self, app_instance, icon_manager, ui):
+    def __init__(self, app_instance, icon_manager, ui, app_launchers):
         self.app = app_instance
         self.icon_manager = icon_manager
         self.ui = ui
-        self.master = app_instance.root # 假设 root 是主窗口
+        self.master = app_instance.root
         self._status_reset_after_id = None
-        self.icons = {} # 这个icons属性可能不再需要，因为可以通过self.icon_manager访问
+        self.icons = {}
         self.developer_avatar_path = "icons/developer_avatar.png"
+        
+        # 接收外部传入的启动函数字典
+        self.app_launchers = app_launchers
 
     def edit_background_color(self):
-        """
-        弹出颜色选择对话框，更改桌面背景的颜色
-        """
         color_code = colorchooser.askcolor(title="选择桌面背景颜色")
         if color_code:
             hex_color = color_code[1]
@@ -38,9 +30,6 @@ class LogicHandler:
             self.open_reset()
     
     def edit_label_color(self):
-        """
-        弹出颜色选择对话框，更改所有图标文字的颜色
-        """
         color_code = colorchooser.askcolor(title="选择图标文字颜色")
         if color_code:
             hex_color = color_code[1]
@@ -62,46 +51,35 @@ class LogicHandler:
         else:
             return lambda: messagebox.showinfo("操作", f"双击了图标: {icon_id}\n请在此处实现您的功能！")
 
-    def open_terminal(self):
-        loading_window = self._show_loading_message("执行打开终端的操作...")
+    def _launch_app_thread(self, app_key, app_name):
+        """通用的应用启动函数，使用线程来避免阻塞主UI。"""
+        loading_window = self._show_loading_message(f"执行打开{app_name}的操作...")
+        
         def run_task():
-            success = open_terminal_system(self.app)
-            self.master.after(0, self._update_status_and_destroy_window, success, loading_window, "终端")
+            # 从字典中获取并调用对应的启动函数
+            launcher_func = self.app_launchers.get(app_key)
+            if launcher_func:
+                success = launcher_func(self.app)
+                self.master.after(0, self._update_status_and_destroy_window, success, loading_window, app_name)
+            else:
+                self.master.after(0, self._update_status_and_destroy_window, False, loading_window, app_name)
+        
         threading.Thread(target=run_task).start()
+
+    def open_terminal(self):
+        self._launch_app_thread("terminal", "终端")
 
     def open_browser(self):
-        loading_window = self._show_loading_message("执行打开浏览器的操作...")
-        
-        def run_task():
-            success = open_browser_system(self.app)
-            self.master.after(0, self._update_status_and_destroy_window, success, loading_window, "浏览器")
-        
-        threading.Thread(target=run_task).start()
+        self._launch_app_thread("browser", "浏览器")
 
     def open_file_manager(self):
-        loading_window = self._show_loading_message("执行打开文件浏览器的操作...")
-        
-        def run_task():
-            success = open_file_manager(self.app)
-            self.master.after(0, self._update_status_and_destroy_window, success, loading_window, "文件浏览器")
-        
-        threading.Thread(target=run_task).start()
+        self._launch_app_thread("file_manager", "文件浏览器")
 
     def open_editor(self):
-        loading_window = self._show_loading_message("执行打开文件浏览器的操作...")
-        
-        def run_task():
-            success = open_file_editor(self.app)
-            self.master.after(0, self._update_status_and_destroy_window, success, loading_window, "文件浏览器")
-        
-        threading.Thread(target=run_task).start()
+        self._launch_app_thread("editor", "文件编辑器")
 
     def open_camera(self):
-        loading_window = self._show_loading_message("执行打开相机的操作...")
-        def run_task():
-            success = open_camera_system(self.app)
-            self.master.after(0, self._update_status_and_destroy_window, success, loading_window, "相机")
-        threading.Thread(target=run_task).start()
+        self._launch_app_thread("camera", "相机")
 
     def menu_placeholder_function(self):
         messagebox.showinfo("提示", "此菜单功能待实现！")

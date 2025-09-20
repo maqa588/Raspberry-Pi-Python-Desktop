@@ -4,7 +4,7 @@ import subprocess
 import os
 from tkinter import messagebox
 
-def open_browser_system(app_instance):
+def open_browser(app_instance):
     """
     根据运行环境（打包或开发）启动浏览器应用。
     """
