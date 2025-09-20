@@ -6,7 +6,8 @@ import datetime
 from pathlib import Path
 from tkinter import messagebox, simpledialog
 import tkinter as tk
-import tkinter as ttk
+from tkinter import ttk
+import system.config as config
 
 class LogicManager:
     def __init__(self, app_instance, tree_widget, path_var):
@@ -24,7 +25,6 @@ class LogicManager:
 
     def get_file_category(self, filename: str) -> str:
         """根据文件扩展名返回分类名称。"""
-        # ... (同原文件)
         ext = filename.split('.')[-1].lower() if '.' in filename else ''
         if ext in ['mp3', 'wav', 'flac', 'aac']: return "音乐"
         if ext in ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'tiff', 'svg']: return "图片"
@@ -36,7 +36,6 @@ class LogicManager:
 
     def _format_size(self, size_bytes):
         """将字节转换为可读的格式。"""
-        # ... (同原文件)
         if size_bytes < 1024:
             return f"{size_bytes} B"
         elif size_bytes < 1024**2:
@@ -48,7 +47,6 @@ class LogicManager:
 
     def get_icon_key_for_file(self, filename: str) -> str:
         """根据文件名返回图标键。"""
-        # ... (同原文件)
         ext = filename.split('.')[-1].lower() if '.' in filename else ''
         if ext in ['mp3', 'wav', 'flac', 'aac']: return "music"
         if ext in ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'tiff']: return "photo"
@@ -59,7 +57,6 @@ class LogicManager:
         
     def populate_file_list(self, path: Path):
         """填充文件列表，并按类型分组和排序。"""
-        # ... (同原文件，但需要更新对 icon_references 和 photo_image_references 的引用)
         for i in self.tree.get_children():
             self.tree.delete(i)
         self.app.photo_image_references.clear()
@@ -68,7 +65,6 @@ class LogicManager:
         self.path_var.set(str(self.current_path))
         self.master.title(f"文件管理器 - {self.current_path.name}")
         
-        # ... (与原文件管理器中的 `populate_file_list` 逻辑相同)
         categories = {
             "文件夹": [], "图片": [], "音乐": [], "视频": [],
             "文档": [], "网页": [], "压缩包": [], "其他": []
@@ -129,7 +125,6 @@ class LogicManager:
 
     def on_double_click(self, event=None):
         """处理双击或菜单“打开”事件。"""
-        # ... (同原文件，需要更新对 self.open_document_in_editor 和 self.navigate_to 的引用)
         item_id = self.tree.focus() 
         if not item_id:
             return
@@ -296,10 +291,18 @@ class LogicManager:
             is_dir = path.is_dir()
             prop_win = tk.Toplevel(self.master)
             prop_win.title(f"'{path.name}' 的属性")
-            # ... (显示属性窗口的UI逻辑，需要引用 app.property_window_icon)
-            prop_win.geometry("350x250")
+            # --- 窗口居中逻辑 ---
+            win_width = 350
+            win_height = 200
+            screen_width = config.WINDOW_WIDTH
+            screen_height = config.WINDOW_HEIGHT
+            x = (screen_width / 2) - (win_width / 2)
+            y = (screen_height / 2) - (win_height / 2)
+            prop_win.geometry(f'{win_width}x{win_height}+{int(x)}+{int(y)}')
+            # --- 居中逻辑结束 ---
             prop_win.resizable(False, False)
-            frame = ttk.Frame(prop_win, padding="10")
+            # 使用 ttk.Frame 替代 tk.Frame 以支持 padding 参数
+            frame = ttk.Frame(prop_win, padding="10") 
             frame.pack(expand=True, fill=tk.BOTH)
             icon_key = "folder" if is_dir else self.get_icon_key_for_file(path.name)
             self.app.property_window_icon = self.app.icon_references.get(icon_key)
