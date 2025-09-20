@@ -16,8 +16,7 @@ from software.browser import open_browser
 from software.file_editor import open_file_editor
 from software.camera import open_camera_system
 from software.terminal import open_terminal_system
-# 修正导入路径：从 software.file_manager.file_manager 中导入
-from software.file_manager_init import open_file_manager 
+from software.file_manager_init import open_file_manager
 
 # 获取项目的根目录，以便于子进程能够正确找到模块
 # PyInstaller 打包后，sys.executable 所在目录就是项目的根目录
