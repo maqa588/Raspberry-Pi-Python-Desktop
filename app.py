@@ -16,29 +16,12 @@ from software.browser import open_browser
 from software.file_editor import open_file_editor
 from software.camera import open_camera_system
 from software.terminal import open_terminal_system
+# 修正导入路径：从 software.file_manager.file_manager 中导入
+from software.file_manager_init import open_file_manager 
 
 # 获取项目的根目录，以便于子进程能够正确找到模块
-PROJECT_ROOT = Path(__file__).resolve().parent
-
-# --- 独立应用的启动函数 ---
-# 这些函数应该放在一个方便主程序调用的地方
-def open_file_manager_system(app_instance):
-    """根据运行环境启动文件管理器应用。"""
-    try:
-        main_executable = sys.executable
-        if getattr(sys, 'frozen', False):
-            # PyInstaller 打包后的环境
-            command = [main_executable, "file_manager_only"]
-        else:
-            # 开发环境，使用 -m 参数和 cwd 参数来正确地运行模块
-            command = [main_executable, "-m", "software.file_manager.main"]
-        
-        # 启动子进程，并将工作目录设置为项目根目录
-        subprocess.Popen(command, cwd=PROJECT_ROOT)
-        return True
-    except Exception as e:
-        messagebox.showerror("启动失败", f"启动文件管理器时发生未知错误：{e}")
-        return False
+# PyInstaller 打包后，sys.executable 所在目录就是项目的根目录
+PROJECT_ROOT = Path(sys.executable).parent if getattr(sys, 'frozen', False) else Path(__file__).resolve().parent
 
 # --- 命令行参数处理 ---
 # 当直接从命令行启动特定应用时
@@ -47,10 +30,29 @@ if len(sys.argv) > 1:
         create_browser_window()
         sys.exit()
     elif sys.argv[1] == "file_manager_only":
-        from software.file_manager.main import FileManagerApp # 动态导入
-        fm_root = tk.Tk()
-        FileManagerApp(fm_root)
-        fm_root.mainloop()
+        # 动态导入 FileManagerApp，避免在不需要时加载
+        from software.file_manager.main import FileManagerApp 
+        
+        # 检查是否提供了 project_root 参数
+        if len(sys.argv) > 2:
+            fm_root = tk.Tk()
+            project_root_path = Path(sys.argv[2])
+            FileManagerApp(fm_root, project_root=project_root_path)
+            fm_root.mainloop()
+        else:
+            messagebox.showerror("启动失败", "文件管理器启动失败：缺少 project_root 参数。")
+        sys.exit()
+    elif sys.argv[1] == "file_editor_only":
+        # 动态导入 FileEditorApp
+        from software.file_editor_app import FileEditorApp
+        
+        if len(sys.argv) > 2:
+            editor_root = tk.Tk()
+            project_root_path = Path(sys.argv[2])
+            FileEditorApp(editor_root, project_root=project_root_path)
+            editor_root.mainloop()
+        else:
+            messagebox.showerror("启动失败", "文件编辑器启动失败：缺少 project_root 参数。")
         sys.exit()
     # 可以在此处添加其他应用的命令行参数处理
 
@@ -58,12 +60,14 @@ class DesktopApp:
     def __init__(self, root):
         self.master = root
         self.root = root
+        # 将 PROJECT_ROOT 变量赋值给实例属性
+        self.project_root = PROJECT_ROOT
         self.master.title("Raspberry Pi Desktop")
         self.master.geometry(f"{MAIN_WIDTH}x{MAIN_HEIGHT}")
         
         # 将所有启动函数打包成一个字典，方便传递
         app_launchers = {
-            'file_manager': open_file_manager_system,
+            'file_manager': open_file_manager,
             'browser': open_browser,
             'editor': open_file_editor,
             'camera': open_camera_system,

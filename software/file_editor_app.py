@@ -3,8 +3,11 @@ from tkinter import filedialog, messagebox, simpledialog, font, colorchooser
 import os
 import sys
 import chardet
+from pathlib import Path
 
+# 获取当前文件的绝对路径
 current_file_path = os.path.abspath(__file__)
+# 获取项目根目录（向上两级，从 software/file_editor_app.py 到项目根目录）
 project_root = os.path.dirname(os.path.dirname(current_file_path))
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
@@ -14,12 +17,13 @@ from system.button.about import show_system_about, show_developer_about
 
 
 class FileEditorApp:
-    def __init__(self, master):
+    def __init__(self, master, project_root):
         self.master = master
         self.master.title("文件编辑器")
         self.master.geometry(f"{WINDOW_WIDTH}x{WINDOW_HEIGHT}")
 
         # --- 状态变量初始化 ---
+        self.project_root = project_root
         self.current_filepath = None
         self.current_encoding = 'utf-8'
         self.text_modified = False
@@ -44,8 +48,10 @@ class FileEditorApp:
 
     def process_command_line_args(self):
         """处理启动时传入的命令行参数"""
-        if len(sys.argv) > 1:
-            file_to_open = sys.argv[1]
+        # 检查 sys.argv 长度，第一个参数是脚本路径，第二个是 project_root
+        # 真正需要处理的文件路径参数是第三个
+        if len(sys.argv) > 2:
+            file_to_open = sys.argv[2]
             if os.path.isfile(file_to_open):
                 self._load_file(file_to_open)
             elif os.path.isdir(os.path.dirname(os.path.abspath(file_to_open))):
@@ -54,7 +60,7 @@ class FileEditorApp:
                 self.text_modified = False
                 self.text_widget.edit_modified(False)
             else:
-                 messagebox.showerror("错误", f"无效的文件路径: {file_to_open}")
+                messagebox.showerror("错误", f"无效的文件路径: {file_to_open}")
 
     def create_menu(self):
         """根据操作系统动态创建菜单栏"""
@@ -344,5 +350,16 @@ class FileEditorApp:
 
 if __name__ == '__main__':
     root = tk.Tk()
-    app = FileEditorApp(root)
+    # 检查命令行参数以获取 project_root
+    if len(sys.argv) > 1:
+        # 假设第二个参数是 project_root
+        project_root_str = sys.argv[1]
+        project_root_path = Path(project_root_str)
+        app = FileEditorApp(root, project_root=project_root_path)
+    else:
+        # 如果没有通过命令行参数传递，则使用默认的根路径
+        project_root_path = Path(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        messagebox.showwarning("警告", "未通过命令行参数获取 project_root，使用默认路径。")
+        app = FileEditorApp(root, project_root=project_root_path)
+        
     root.mainloop()

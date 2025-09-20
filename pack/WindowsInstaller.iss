@@ -29,17 +29,18 @@ ArchitecturesAllowed=x64compatible
 ; the 64-bit view of the registry.
 ArchitecturesInstallIn64BitMode=x64compatible
 DisableProgramGroupPage=yes
-LicenseFile=C:\Users\Administrator\Desktop\Raspberry-Pi-Python-Desktop\pack\license.txt
+LicenseFile=D:\Raspberry-Pi-Python-Desktop\pack\license.txt
 ; Uncomment the following line to run in non administrative install mode (install for current user only).
 ;PrivilegesRequired=lowest
 PrivilegesRequiredOverridesAllowed=dialog
-OutputDir=C:\Users\Administrator\Desktop\Raspberry-Pi-Python-Desktop\pack
+OutputDir=D:\Raspberry-Pi-Python-Desktop\pack
 OutputBaseFilename=raspberry-pi-setup
 SolidCompression=yes
 WizardStyle=modern
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"
+Name: "chinesesimplified"; MessagesFile: "compiler:Languages\SimplifiedChinese.isl"
 Name: "arabic"; MessagesFile: "compiler:Languages\Arabic.isl"
 Name: "armenian"; MessagesFile: "compiler:Languages\Armenian.isl"
 Name: "brazilianportuguese"; MessagesFile: "compiler:Languages\BrazilianPortuguese.isl"
@@ -73,8 +74,8 @@ Name: "ukrainian"; MessagesFile: "compiler:Languages\Ukrainian.isl"
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
 
 [Files]
-Source: "C:\Users\Administrator\Desktop\Raspberry-Pi-Python-Desktop\pack\dist\RaspberryPiDesktop\{#MyAppExeName}"; DestDir: "{app}"; Flags: ignoreversion
-Source: "C:\Users\Administrator\Desktop\Raspberry-Pi-Python-Desktop\pack\dist\RaspberryPiDesktop\_internal\*"; DestDir: "{app}\_internal"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "D:\Raspberry-Pi-Python-Desktop\pack\dist\RaspberryPiDesktop\{#MyAppExeName}"; DestDir: "{app}"; Flags: ignoreversion
+Source: "D:\Raspberry-Pi-Python-Desktop\pack\dist\RaspberryPiDesktop\_internal\*"; DestDir: "{app}\_internal"; Flags: ignoreversion recursesubdirs createallsubdirs
 ; NOTE: Don't use "Flags: ignoreversion" on any shared system files
 
 [Icons]
