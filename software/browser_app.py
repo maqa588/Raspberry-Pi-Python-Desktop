@@ -2,6 +2,7 @@ import sys
 import os
 from urllib.parse import urlparse
 import wx
+import wx.adv
 import wx.html2 as webview
 
 # -----------------------
@@ -116,8 +117,9 @@ class BrowserFrame(wx.Frame):
 
     def create_menu_bar(self):
         menubar = wx.MenuBar()
+        
+        # 导航菜单
         nav_menu = wx.Menu()
-
         mi_back = nav_menu.Append(wx.ID_BACKWARD, "后退\tCtrl+Left", "返回上一页")
         mi_forward = nav_menu.Append(wx.ID_FORWARD, "前进\tCtrl+Right", "前进到下一页")
         mi_reload = nav_menu.Append(wx.ID_REFRESH, "刷新\tCtrl+R", "刷新当前页面")
@@ -131,24 +133,37 @@ class BrowserFrame(wx.Frame):
         nav_menu.AppendSeparator()
         mi_exit = nav_menu.Append(wx.ID_EXIT, "退出\tCtrl+Q", "退出程序")
         
+        # 关于菜单
+        about_menu = wx.Menu()
+        # 为系统信息和开发者信息创建两个独立的菜单项
+        mi_system_about = about_menu.Append(wx.ID_ABOUT, "关于系统\tF1", "显示系统信息")
+        mi_developer_about = about_menu.Append(wx.NewIdRef(), "关于开发者", "显示开发者信息")
+
+        # 将菜单添加到菜单栏
         menubar.Append(nav_menu, "导航")
+        menubar.Append(about_menu, "关于")
         self.SetMenuBar(menubar)
 
+        # 绑定事件
         self.Bind(wx.EVT_MENU, self.on_back, mi_back)
         self.Bind(wx.EVT_MENU, self.on_forward, mi_forward)
         self.Bind(wx.EVT_MENU, self.on_reload, mi_reload)
         self.Bind(wx.EVT_MENU, self.on_home, mi_home)
         self.Bind(wx.EVT_MENU, self.on_quit, mi_exit)
+        
+        # 绑定关于菜单项到相应的处理函数
+        self.Bind(wx.EVT_MENU, self.show_system_about, mi_system_about)
+        self.Bind(wx.EVT_MENU, self.show_developer_about, mi_developer_about)
 
     def create_toolbar(self, panel, vbox):
         toolbar = wx.BoxSizer(wx.HORIZONTAL)
         
         if not IS_LINUX:
-            self.btn_back = wx.Button(panel, id=wx.ID_BACKWARD, label="后退")
-            self.btn_forward = wx.Button(panel, id=wx.ID_FORWARD, label="前进")
-            self.btn_reload = wx.Button(panel, id=wx.ID_REFRESH, label="刷新")
-            self.btn_home = wx.Button(panel, id=wx.ID_HOME, label="主页")
-            self.btn_go = wx.Button(panel, label="Go")
+            self.btn_back = wx.Button(panel, id=wx.ID_BACKWARD, label="⬅️")
+            self.btn_forward = wx.Button(panel, id=wx.ID_FORWARD, label="➡️")
+            self.btn_reload = wx.Button(panel, id=wx.ID_REFRESH, label="🔁")
+            self.btn_home = wx.Button(panel, id=wx.ID_HOME, label="🏠")
+            self.btn_go = wx.Button(panel, label="🛫")
             
             toolbar.Add(self.btn_back, flag=wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, border=6)
             toolbar.Add(self.btn_forward, flag=wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, border=6)
@@ -268,6 +283,21 @@ class BrowserFrame(wx.Frame):
         if not IS_LINUX:
             self.btn_back.Enable(can_back)
             self.btn_forward.Enable(can_forward)
+
+    def show_system_about(self, event):
+        """显示一个包含系统信息的标准关于对话框。"""
+        info = wx.adv.AboutDialogInfo()
+        info.SetName("Maqa Browser on Pi Desktop")
+        info.SetVersion("0.1.4-alpha")
+        info.SetDescription("这是一个基于 wxPython 的简单浏览器实现")
+        info.SetCopyright("(C) 2025 Spencer Maqa")
+        wx.adv.AboutBox(info)
+
+    def show_developer_about(self, event):
+        """显示一个包含开发者信息的对话框。"""
+        # 这里你可以自定义一个对话框或简单地使用一个消息框
+        wx.MessageBox("开发者：\n\n- Spencer Maqa\n\n联系方式：maqa588@163.com\n\nGithub项目地址；https://github.com/maqa588/Raspberry-Pi-Python-Desktop", "关于开发者", wx.OK | wx.ICON_INFORMATION)
+
 
 def create_browser_window():
     app = wx.App(False)

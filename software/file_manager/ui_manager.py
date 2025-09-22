@@ -122,6 +122,9 @@ class UIManager:
             self.file_menu.add_command(label="删除", command=commands['delete'])
             self.file_menu.add_separator()
             self.file_menu.add_command(label="新建文件夹", command=commands['new_folder'])
+            self.file_menu.add_separator()
+            self.file_menu.add_command(label="系统信息", command=lambda: show_system_about(self.master))
+            self.file_menu.add_command(label="关于开发者", command=lambda: show_developer_about(self.master))
             
             # --- 修复点：为自定义排序菜单添加命令 ---
             self.sort_menu.add_command(label="按名称排序", command=commands['sort_name'])
