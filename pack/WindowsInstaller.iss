@@ -2,7 +2,7 @@
 ; SEE THE DOCUMENTATION FOR DETAILS ON CREATING INNO SETUP SCRIPT FILES!
 
 #define MyAppName "Raspberry Pi Desktop"
-#define MyAppVersion "0.1.3-alpha"
+#define MyAppVersion "0.1.4-alpha"
 #define MyAppPublisher "Spencer"
 #define MyAppURL "https://www.winddine.top/"
 #define MyAppExeName "RaspberryPiDesktop.exe"
@@ -29,11 +29,11 @@ ArchitecturesAllowed=x64compatible
 ; the 64-bit view of the registry.
 ArchitecturesInstallIn64BitMode=x64compatible
 DisableProgramGroupPage=yes
-LicenseFile=D:\Raspberry-Pi-Python-Desktop\pack\license.txt
+LicenseFile=C:\Raspberry-Pi-Python-Desktop\pack\license.txt
 ; Uncomment the following line to run in non administrative install mode (install for current user only).
 ;PrivilegesRequired=lowest
 PrivilegesRequiredOverridesAllowed=dialog
-OutputDir=D:\Raspberry-Pi-Python-Desktop\pack
+OutputDir=C:\Raspberry-Pi-Python-Desktop\pack
 OutputBaseFilename=raspberry-pi-setup
 SolidCompression=yes
 WizardStyle=modern
@@ -74,8 +74,8 @@ Name: "ukrainian"; MessagesFile: "compiler:Languages\Ukrainian.isl"
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
 
 [Files]
-Source: "D:\Raspberry-Pi-Python-Desktop\pack\dist\RaspberryPiDesktop\{#MyAppExeName}"; DestDir: "{app}"; Flags: ignoreversion
-Source: "D:\Raspberry-Pi-Python-Desktop\pack\dist\RaspberryPiDesktop\_internal\*"; DestDir: "{app}\_internal"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "C:\Raspberry-Pi-Python-Desktop\pack\dist\RaspberryPiDesktop\{#MyAppExeName}"; DestDir: "{app}"; Flags: ignoreversion
+Source: "C:\Raspberry-Pi-Python-Desktop\pack\dist\RaspberryPiDesktop\_internal\*"; DestDir: "{app}\_internal"; Flags: ignoreversion recursesubdirs createallsubdirs
 ; NOTE: Don't use "Flags: ignoreversion" on any shared system files
 
 [Icons]
