@@ -107,3 +107,10 @@ pip install -r requirements.txt
 ```bash
 python app.py
 ```
+
+## Linux
+
+你需要安装
+```bash
+sudo apt install libwebkit2gtk-4.1-dev libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev
+```
