@@ -113,4 +113,5 @@ python app.py
 你需要安装
 ```bash
 sudo apt install libwebkit2gtk-4.1-dev libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev
+sudo apt-get install python3-wxgtk4.0
 ```
