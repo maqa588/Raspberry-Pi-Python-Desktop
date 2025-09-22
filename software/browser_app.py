@@ -31,7 +31,6 @@ def setup_webview_backend():
     if sys.platform.startswith("win"):
         webview2_path = find_webview2_dll()
         if webview2_path:
-            os.environ["WEBVIEW2_CORE_DLL_PATH"] = os.path.dirname(webview2_path)
             print("✅ 找到 WebView2Loader.dll:", webview2_path)
         else:
             print("⚠️ 未找到 WebView2Loader.dll，可能会回退到 IE")
@@ -138,30 +137,14 @@ class BrowserFrame(wx.Frame):
 
     def create_toolbar(self, panel, vbox):
         toolbar = wx.BoxSizer(wx.HORIZONTAL)
-
-        # Fix for Gtk-WARNING: Set a minimum size for the buttons.
-        button_size = (30, -1)  # Use a fixed width and let height be flexible
-
-        self.btn_back = wx.Button(panel, label="←")
-        self.btn_back.SetMinSize(button_size)
         
-        self.btn_forward = wx.Button(panel, label="→")
-        self.btn_forward.SetMinSize(button_size)
-
-        self.btn_reload = wx.Button(panel, label="⟳")
-        self.btn_reload.SetMinSize(button_size)
-        
-        self.btn_home = wx.Button(panel, label="主页")
-        self.btn_home.SetMinSize(button_size)
-        
+        # 使用内置的图标 ID 和更可靠的布局方式
+        self.btn_back = wx.Button(panel, id=wx.ID_BACKWARD, label="后退")
+        self.btn_forward = wx.Button(panel, id=wx.ID_FORWARD, label="前进")
+        self.btn_reload = wx.Button(panel, id=wx.ID_REFRESH, label="刷新")
+        self.btn_home = wx.Button(panel, id=wx.ID_HOME, label="主页")
         self.btn_go = wx.Button(panel, label="Go")
-        self.btn_go.SetMinSize(button_size)
-
-        if sys.platform.startswith("linux"):
-            self.btn_close = wx.Button(panel, label="X")
-            self.btn_close.SetMinSize(button_size)
-            toolbar.Add(self.btn_close, flag=wx.ALIGN_CENTER_VERTICAL | wx.LEFT, border=6)
-
+        
         toolbar.Add(self.btn_back, flag=wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, border=6)
         toolbar.Add(self.btn_forward, flag=wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, border=6)
         toolbar.Add(self.btn_reload, flag=wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, border=6)
@@ -171,6 +154,10 @@ class BrowserFrame(wx.Frame):
         toolbar.Add(self.url_ctrl, proportion=1, flag=wx.EXPAND)
 
         toolbar.Add(self.btn_go, flag=wx.ALIGN_CENTER_VERTICAL | wx.LEFT, border=6)
+
+        if sys.platform.startswith("linux"):
+            self.btn_close = wx.Button(panel, id=wx.ID_CLOSE, label="X")
+            toolbar.Add(self.btn_close, flag=wx.ALIGN_CENTER_VERTICAL | wx.LEFT, border=6)
 
         vbox.Add(toolbar, flag=wx.EXPAND | wx.ALL, border=6)
 
