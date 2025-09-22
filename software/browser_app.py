@@ -49,6 +49,16 @@ def setup_webview_backend():
         # 备注: WebKitGTK 库名可能根据不同 Debian/Ubuntu 版本有所不同
         # 最常见的是 libwebkit2gtk-4.0-dev 和 libwebkit2gtk-6.0-dev
         print("🐧 Linux 使用 WebKitGTK (需安装 libwebkit2gtk-4.0-dev/libwebkit2gtk-6.0-dev)")
+        
+        # --- 新增：诊断打印 ---
+        print("--- 诊断信息 ---")
+        try:
+            is_gtk_backend_available = webview.WebView.IsBackendAvailable(webview.WebViewBackendWebKit)
+            print(f"ℹ️ WebKitGTK backend 可用性: {is_gtk_backend_available}")
+        except Exception as e:
+            print(f"❌ 检查 WebKitGTK backend 可用性时出错: {e}")
+        print("----------------")
+        
         return True
 
     else:
