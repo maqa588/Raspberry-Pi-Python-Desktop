@@ -163,12 +163,6 @@ class BrowserFrame(wx.Frame):
 
         if not IS_LINUX:
             toolbar.Add(self.btn_go, flag=wx.ALIGN_CENTER_VERTICAL | wx.LEFT, border=6)
-        
-        if IS_LINUX:
-            self.btn_close = wx.Button(panel, id=wx.ID_CLOSE, label="X")
-            self.btn_close.SetMinSize((30, -1))
-            toolbar.Add(self.btn_close, flag=wx.ALIGN_CENTER_VERTICAL | wx.LEFT, border=6)
-            self.btn_close.Bind(wx.EVT_BUTTON, self.on_quit)
 
         vbox.Add(toolbar, flag=wx.EXPAND | wx.ALL, border=6)
 
