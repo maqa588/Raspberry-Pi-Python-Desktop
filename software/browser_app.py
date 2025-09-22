@@ -46,7 +46,7 @@ def setup_webview_backend():
         return True
 
     elif sys.platform.startswith("linux"):
-        print("🐧 Linux 使用 WebKitGTK (需安装 libwebkitgtk-6.0-dev)")
+        print("🐧 Linux 使用 WebKitGTK (需安装 libwebkit2gtk-4.1-dev)")
         return True
 
     else:
