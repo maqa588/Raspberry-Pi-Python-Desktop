@@ -51,19 +51,19 @@ def setup_webview_backend():
         return True
     elif IS_LINUX:
         print("🐧 Linux uses WebKitGTK (requires libwebkit2gtk-4.0-dev/libwebkit2gtk-6.0-dev)")
-        print("--- Diagnostic information ---")
-        try:
-            is_gtk_backend_available = webview.WebView.IsBackendAvailable(webview.WebViewBackendWebKit)
-            print(f"ℹ️ WebKitGTK backend availability: {is_gtk_backend_available}")
-        except Exception as e:
-            print(f"❌ Error checking WebKitGTK backend availability: {e}")
-        print("----------------")
+        # 直接返回 WebKitGTK 作为后端
         return True
     else:
         print("Unknown platform, attempting default backend")
         return False
 
-EDGE_AVAILABLE = setup_webview_backend()
+# Use a specific backend for better performance
+if IS_LINUX:
+    WEBVIEW_BACKEND = webview.WebViewBackendWebKit
+elif sys.platform.startswith("win"):
+    WEBVIEW_BACKEND = webview.WebViewBackendEdge
+else:
+    WEBVIEW_BACKEND = webview.WebViewBackendDefault
 
 class BrowserFrame(wx.Frame):
     def __init__(self):
@@ -82,12 +82,9 @@ class BrowserFrame(wx.Frame):
 
         self.browser = None
         try:
-            if EDGE_AVAILABLE and sys.platform.startswith("win"):
-                self.browser = webview.WebView.New(panel, backend=webview.WebViewBackendEdge)
-                print("✅ Using Edge WebView2 backend")
-            else:
-                self.browser = webview.WebView.New(panel)
-                print("ℹ️ Using default WebView backend")
+            # Directly specify the backend to skip the search process
+            self.browser = webview.WebView.New(panel, backend=WEBVIEW_BACKEND)
+            print("✅ Successfully created WebView with specified backend.")
         except Exception as e:
             print("❌ WebView creation failed:", e)
             self.browser = wx.StaticText(panel, label="WebView initialization failed\n" + str(e))
@@ -163,6 +160,12 @@ class BrowserFrame(wx.Frame):
 
         if not IS_LINUX:
             toolbar.Add(self.btn_go, flag=wx.ALIGN_CENTER_VERTICAL | wx.LEFT, border=6)
+        
+        if IS_LINUX:
+            self.btn_close = wx.Button(panel, id=wx.ID_CLOSE, label="X")
+            self.btn_close.SetMinSize((30, -1))
+            toolbar.Add(self.btn_close, flag=wx.ALIGN_CENTER_VERTICAL | wx.LEFT, border=6)
+            self.btn_close.Bind(wx.EVT_BUTTON, self.on_quit)
 
         vbox.Add(toolbar, flag=wx.EXPAND | wx.ALL, border=6)
 
