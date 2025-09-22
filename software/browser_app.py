@@ -126,6 +126,11 @@ class BrowserFrame(wx.Frame):
         mi_reload = nav_menu.Append(wx.ID_REFRESH, "刷新\tCtrl+R", "刷新当前页面")
         nav_menu.AppendSeparator()
         mi_home = nav_menu.Append(wx.NewIdRef(), "主页\tCtrl+H", "跳到主页")
+        
+        if IS_LINUX:
+            mi_go = nav_menu.Append(wx.NewIdRef(), "Go\tCtrl+G", "访问输入的URL")
+            self.Bind(wx.EVT_MENU, self.on_go, mi_go)
+
         nav_menu.AppendSeparator()
         mi_exit = nav_menu.Append(wx.ID_EXIT, "退出\tCtrl+Q", "退出程序")
         
