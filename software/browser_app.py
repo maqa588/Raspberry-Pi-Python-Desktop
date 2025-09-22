@@ -4,9 +4,6 @@ from urllib.parse import urlparse
 import wx
 import wx.html2 as webview
 
-# -----------------------
-# 平台窗口尺寸设置
-# -----------------------
 if sys.platform.startswith("linux"):
     WINDOW_WIDTH = 480
     WINDOW_HEIGHT = 320
@@ -72,27 +69,7 @@ class BrowserFrame(wx.Frame):
         panel = wx.Panel(self)
         vbox = wx.BoxSizer(wx.VERTICAL)
 
-        # 工具栏
-        toolbar = wx.BoxSizer(wx.HORIZONTAL)
-        self.btn_back = wx.Button(panel, label="←")
-        self.btn_forward = wx.Button(panel, label="→")
-        self.btn_reload = wx.Button(panel, label="⟳")
-        self.btn_home = wx.Button(panel, label="主页")
-
-        for btn in (self.btn_back, self.btn_forward, self.btn_reload, self.btn_home):
-            toolbar.Add(btn, flag=wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, border=6)
-
-        self.url_ctrl = wx.TextCtrl(panel, style=wx.TE_PROCESS_ENTER)
-        toolbar.Add(self.url_ctrl, proportion=1, flag=wx.EXPAND)
-
-        self.btn_go = wx.Button(panel, label="Go")
-        toolbar.Add(self.btn_go, flag=wx.ALIGN_CENTER_VERTICAL | wx.LEFT, border=6)
-
-        if sys.platform.startswith("linux"):
-            self.btn_close = wx.Button(panel, label="X")
-            toolbar.Add(self.btn_close, flag=wx.ALIGN_CENTER_VERTICAL | wx.LEFT, border=6)
-
-        vbox.Add(toolbar, flag=wx.EXPAND | wx.ALL, border=6)
+        self.create_toolbar(panel, vbox)
 
         # WebView 部分
         try:
@@ -167,10 +144,32 @@ class BrowserFrame(wx.Frame):
         # wx will parse "\tCtrl+Q" 或 "\tCmd+Q" label 来显示快捷键，并通常自动处理 Command key 在 macOS
         # 如果你想强制支持 Cmd 在 macOS，也可以用 AcceleratorTable
 
+    def create_toolbar(self, panel, vbox):
+        # 工具栏
+        toolbar = wx.BoxSizer(wx.HORIZONTAL)
+        self.btn_back = wx.Button(panel, label="←")
+        self.btn_forward = wx.Button(panel, label="→")
+        self.btn_reload = wx.Button(panel, label="⟳")
+        self.btn_home = wx.Button(panel, label="主页")
+
+        for btn in (self.btn_back, self.btn_forward, self.btn_reload, self.btn_home):
+            toolbar.Add(btn, flag=wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, border=6)
+
+        self.url_ctrl = wx.TextCtrl(panel, style=wx.TE_PROCESS_ENTER)
+        toolbar.Add(self.url_ctrl, proportion=1, flag=wx.EXPAND)
+
+        self.btn_go = wx.Button(panel, label="Go")
+        toolbar.Add(self.btn_go, flag=wx.ALIGN_CENTER_VERTICAL | wx.LEFT, border=6)
+
+        if sys.platform.startswith("linux"):
+            self.btn_close = wx.Button(panel, label="X")
+            toolbar.Add(self.btn_close, flag=wx.ALIGN_CENTER_VERTICAL | wx.LEFT, border=6)
+
+        vbox.Add(toolbar, flag=wx.EXPAND | wx.ALL, border=6)
+
     def on_quit(self, event):
         self.Close()
 
-    # 你原来的事件和方法保持不变
     def normalize_url(self, url: str) -> str:
         url = url.strip()
         if not url:
