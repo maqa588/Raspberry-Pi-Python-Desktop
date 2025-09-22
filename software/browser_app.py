@@ -131,17 +131,23 @@ class BrowserFrame(wx.Frame):
         self.btn_reload = wx.Button(panel, label="⟳")
         self.btn_home = wx.Button(panel, label="主页")
 
+        # Fix for Gtk-WARNING: Set a minimum size for the buttons.
+        button_min_size = (30, 30)
+
         for btn in (self.btn_back, self.btn_forward, self.btn_reload, self.btn_home):
+            btn.SetMinSize(button_min_size)
             toolbar.Add(btn, flag=wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, border=6)
 
         self.url_ctrl = wx.TextCtrl(panel, style=wx.TE_PROCESS_ENTER)
         toolbar.Add(self.url_ctrl, proportion=1, flag=wx.EXPAND)
 
         self.btn_go = wx.Button(panel, label="Go")
+        self.btn_go.SetMinSize(button_min_size)
         toolbar.Add(self.btn_go, flag=wx.ALIGN_CENTER_VERTICAL | wx.LEFT, border=6)
 
         if sys.platform.startswith("linux"):
             self.btn_close = wx.Button(panel, label="X")
+            self.btn_close.SetMinSize(button_min_size)
             toolbar.Add(self.btn_close, flag=wx.ALIGN_CENTER_VERTICAL | wx.LEFT, border=6)
 
         vbox.Add(toolbar, flag=wx.EXPAND | wx.ALL, border=6)
