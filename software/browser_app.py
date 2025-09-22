@@ -46,7 +46,9 @@ def setup_webview_backend():
         return True
 
     elif sys.platform.startswith("linux"):
-        print("🐧 Linux 使用 WebKitGTK (需安装 libwebkit2gtk-4.1-dev)")
+        # 备注: WebKitGTK 库名可能根据不同 Debian/Ubuntu 版本有所不同
+        # 最常见的是 libwebkit2gtk-4.0-dev 和 libwebkit2gtk-6.0-dev
+        print("🐧 Linux 使用 WebKitGTK (需安装 libwebkit2gtk-4.0-dev/libwebkit2gtk-6.0-dev)")
         return True
 
     else:
@@ -126,35 +128,39 @@ class BrowserFrame(wx.Frame):
 
     def create_toolbar(self, panel, vbox):
         toolbar = wx.BoxSizer(wx.HORIZONTAL)
-        self.btn_back = wx.Button(panel, label="←")
-        self.btn_forward = wx.Button(panel, label="→")
-        self.btn_reload = wx.Button(panel, label="⟳")
-        self.btn_home = wx.Button(panel, label="主页")
 
         # Fix for Gtk-WARNING: Set a minimum size for the buttons.
         button_size = (30, -1)  # Use a fixed width and let height be flexible
 
-        for btn in (self.btn_back, self.btn_forward, self.btn_reload, self.btn_home):
-            toolbar.Add(btn, flag=wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, border=6)
-            
-        self.url_ctrl = wx.TextCtrl(panel, style=wx.TE_PROCESS_ENTER)
-        toolbar.Add(self.url_ctrl, proportion=1, flag=wx.EXPAND)
+        self.btn_back = wx.Button(panel, label="←")
+        self.btn_back.SetMinSize(button_size)
+        
+        self.btn_forward = wx.Button(panel, label="→")
+        self.btn_forward.SetMinSize(button_size)
 
+        self.btn_reload = wx.Button(panel, label="⟳")
+        self.btn_reload.SetMinSize(button_size)
+        
+        self.btn_home = wx.Button(panel, label="主页")
+        self.btn_home.SetMinSize(button_size)
+        
         self.btn_go = wx.Button(panel, label="Go")
-        toolbar.Add(self.btn_go, flag=wx.ALIGN_CENTER_VERTICAL | wx.LEFT, border=6)
+        self.btn_go.SetMinSize(button_size)
 
         if sys.platform.startswith("linux"):
             self.btn_close = wx.Button(panel, label="X")
+            self.btn_close.SetMinSize(button_size)
             toolbar.Add(self.btn_close, flag=wx.ALIGN_CENTER_VERTICAL | wx.LEFT, border=6)
 
-        # 确保所有按钮都有一个固定的尺寸以避免布局警告
-        self.btn_back.SetMinSize(button_size)
-        self.btn_forward.SetMinSize(button_size)
-        self.btn_reload.SetMinSize(button_size)
-        self.btn_home.SetMinSize(button_size)
-        self.btn_go.SetMinSize(button_size)
-        if sys.platform.startswith("linux"):
-            self.btn_close.SetMinSize(button_size)
+        toolbar.Add(self.btn_back, flag=wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, border=6)
+        toolbar.Add(self.btn_forward, flag=wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, border=6)
+        toolbar.Add(self.btn_reload, flag=wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, border=6)
+        toolbar.Add(self.btn_home, flag=wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, border=6)
+
+        self.url_ctrl = wx.TextCtrl(panel, style=wx.TE_PROCESS_ENTER)
+        toolbar.Add(self.url_ctrl, proportion=1, flag=wx.EXPAND)
+
+        toolbar.Add(self.btn_go, flag=wx.ALIGN_CENTER_VERTICAL | wx.LEFT, border=6)
 
         vbox.Add(toolbar, flag=wx.EXPAND | wx.ALL, border=6)
 
