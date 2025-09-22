@@ -46,7 +46,7 @@ def setup_webview_backend():
         return True
 
     elif sys.platform.startswith("linux"):
-        print("🐧 Linux 使用 WebKitGTK (需安装 libwebkit2gtk)")
+        print("🐧 Linux 使用 WebKitGTK (需安装 libwebkitgtk-6.0-dev)")
         return True
 
     else:
@@ -71,7 +71,8 @@ class BrowserFrame(wx.Frame):
 
         self.create_toolbar(panel, vbox)
 
-        # WebView 部分
+        # 核心修改部分
+        self.browser = None
         try:
             if EDGE_AVAILABLE and sys.platform.startswith("win"):
                 self.browser = webview.WebView.New(panel, backend=webview.WebViewBackendEdge)
@@ -81,7 +82,16 @@ class BrowserFrame(wx.Frame):
                 print("ℹ️ 使用默认 WebView backend")
         except Exception as e:
             print("❌ WebView 创建失败:", e)
-            self.browser = wx.StaticText(panel, label="WebView 初始化失败")
+            self.browser = wx.StaticText(panel, label="WebView 初始化失败\n" + str(e))
+
+        # 检查 self.browser 是否为 WebView 对象，如果是，则添加事件绑定
+        if isinstance(self.browser, webview.WebView):
+            try:
+                self.browser.Bind(webview.EVT_WEBVIEW_LOADED, self.on_loaded)
+                self.browser.Bind(webview.EVT_WEBVIEW_NAVIGATING, self.on_navigating)
+                self.browser.Bind(webview.EVT_WEBVIEW_NAVIGATED, self.on_navigated)
+            except Exception as e:
+                print("⚠️ 绑定 WebView 事件失败:", e)
 
         vbox.Add(self.browser, proportion=1, flag=wx.EXPAND)
         panel.SetSizer(vbox)
@@ -94,58 +104,27 @@ class BrowserFrame(wx.Frame):
         self.btn_go.Bind(wx.EVT_BUTTON, self.on_go)
         self.url_ctrl.Bind(wx.EVT_TEXT_ENTER, self.on_go)
 
-        try:
-            self.browser.Bind(webview.EVT_WEBVIEW_LOADED, self.on_loaded)
-        except Exception:
-            pass
-        try:
-            self.browser.Bind(webview.EVT_WEBVIEW_NAVIGATING, self.on_navigating)
-        except Exception:
-            pass
-        try:
-            self.browser.Bind(webview.EVT_WEBVIEW_NAVIGATED, self.on_navigated)
-        except Exception:
-            pass
-
         self.home_url = "https://www.winddine.top"
         self.load_url(self.home_url)
         wx.CallAfter(self.update_nav_buttons)
 
     def create_menu_bar(self):
         menubar = wx.MenuBar()
-
         file_menu = wx.Menu()
 
-        # 刷新
-        # 使用标准 ID 或自定义 ID
         mi_refresh = file_menu.Append(wx.ID_REFRESH, "刷新\tCtrl+R", "刷新当前页面")
-
-        # 主页
-        # 自定义 ID
         mi_home = file_menu.Append(wx.NewIdRef(), "主页\tCtrl+H", "跳到主页")
-
-        # 分隔线
         file_menu.AppendSeparator()
-
-        # 退出
         mi_exit = file_menu.Append(wx.ID_EXIT, "退出\tCtrl+Q", "退出程序")
 
         menubar.Append(file_menu, "文件")
-
         self.SetMenuBar(menubar)
 
-        # 绑定菜单事件
         self.Bind(wx.EVT_MENU, self.on_reload, mi_refresh)
         self.Bind(wx.EVT_MENU, self.on_home, mi_home)
         self.Bind(wx.EVT_MENU, self.on_quit, mi_exit)
 
-        # macOS: 常见约定 “退出” 用 Cmd+Q
-        # Windows/Linux: Ctrl+Q
-        # wx will parse "\tCtrl+Q" 或 "\tCmd+Q" label 来显示快捷键，并通常自动处理 Command key 在 macOS
-        # 如果你想强制支持 Cmd 在 macOS，也可以用 AcceleratorTable
-
     def create_toolbar(self, panel, vbox):
-        # 工具栏
         toolbar = wx.BoxSizer(wx.HORIZONTAL)
         self.btn_back = wx.Button(panel, label="←")
         self.btn_forward = wx.Button(panel, label="→")
@@ -180,20 +159,18 @@ class BrowserFrame(wx.Frame):
         return url
 
     def load_url(self, url: str):
-        if not url:
+        if not url or not isinstance(self.browser, webview.WebView):
             return
         url = self.normalize_url(url)
         try:
             self.browser.LoadURL(url)
-        except Exception:
-            try:
-                self.browser.LoadUrl(url)
-            except Exception as e:
-                print("load_url failed:", e)
+        except Exception as e:
+            print("load_url failed:", e)
         self.url_ctrl.SetValue(url)
         wx.CallLater(200, self.update_nav_buttons)
 
     def on_back(self, evt):
+        if not isinstance(self.browser, webview.WebView): return
         try:
             if self.browser.CanGoBack():
                 self.browser.GoBack()
@@ -201,6 +178,7 @@ class BrowserFrame(wx.Frame):
             pass
 
     def on_forward(self, evt):
+        if not isinstance(self.browser, webview.WebView): return
         try:
             if self.browser.CanGoForward():
                 self.browser.GoForward()
@@ -208,7 +186,7 @@ class BrowserFrame(wx.Frame):
             pass
 
     def on_reload(self, evt):
-        # 用菜单“刷新”触发的也调用这个
+        if not isinstance(self.browser, webview.WebView): return
         try:
             self.browser.Reload()
         except Exception:
@@ -222,6 +200,7 @@ class BrowserFrame(wx.Frame):
         self.load_url(url)
 
     def on_navigating(self, evt):
+        if not isinstance(self.browser, webview.WebView): return
         try:
             url = evt.GetURL()
             if url:
@@ -230,6 +209,7 @@ class BrowserFrame(wx.Frame):
             pass
 
     def on_navigated(self, evt):
+        if not isinstance(self.browser, webview.WebView): return
         try:
             url = evt.GetURL()
             if url:
@@ -239,6 +219,7 @@ class BrowserFrame(wx.Frame):
         wx.CallAfter(self.update_nav_buttons)
 
     def on_loaded(self, evt):
+        if not isinstance(self.browser, webview.WebView): return
         try:
             url = evt.GetURL()
             if url:
@@ -248,6 +229,11 @@ class BrowserFrame(wx.Frame):
         wx.CallAfter(self.update_nav_buttons)
 
     def update_nav_buttons(self):
+        if not isinstance(self.browser, webview.WebView):
+            self.btn_back.Enable(False)
+            self.btn_forward.Enable(False)
+            return
+
         try:
             can_back = self.browser.CanGoBack()
         except Exception:
