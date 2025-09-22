@@ -110,8 +110,8 @@ python app.py
 
 ## Linux
 
-你需要安装
+如果你的Linux机能紧张，像我的树莓派一样，你需要安装
 ```bash
 sudo apt install libwebkit2gtk-4.1-dev libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev
-sudo apt-get install python3-wxgtk4.0
+sudo apt install python3-wxgtk4.0 python3-wxgtk-media4.0 python3-wxgtk-webview4.0
 ```
