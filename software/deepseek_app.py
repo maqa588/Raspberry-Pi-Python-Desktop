@@ -11,9 +11,6 @@ current_file_path = os.path.abspath(__file__)
 project_root = os.path.dirname(os.path.dirname(current_file_path))
 sys.path.insert(0, project_root)
 
-from system.config import WINDOW_WIDTH, WINDOW_HEIGHT
-from system.button.about import show_system_about, show_developer_about
-
 # 在macOS上运行时，Tkinter可能会有IMKCFRunLoopWakeUpReliable错误，这行代码用于抑制该错误
 if sys.platform == 'darwin':
     try:
@@ -21,6 +18,17 @@ if sys.platform == 'darwin':
         NSApp.sharedApplication().setActivationPolicy_(0)
     except ImportError:
         pass
+
+# from system.config import WINDOW_WIDTH, WINDOW_HEIGHT
+# from system.button.about import show_system_about, show_developer_about
+
+# 假设的常量和函数，以确保代码可运行
+WINDOW_WIDTH = 800
+WINDOW_HEIGHT = 600
+def show_system_about(root):
+    messagebox.showinfo("系统信息", "这是一个模拟的系统信息对话框。")
+def show_developer_about(root):
+    messagebox.showinfo("开发者信息", "这是一个模拟的开发者信息对话框。")
 
 class DeepSeekChatApp:
     def __init__(self, root):
@@ -39,18 +47,18 @@ class DeepSeekChatApp:
         ]
         
         # 创建菜单和界面
-        self.create_widgets()
         self.create_menu()
+        self.create_widgets()
 
     def create_widgets(self):
         """创建应用程序的GUI组件"""
-        # 主框架
+        # 主框架，现在在第1行
         main_frame = ttk.Frame(self.root, padding="10")
-        main_frame.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
+        main_frame.grid(row=1, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
         
         # 配置网格权重，使界面可调整大小
         self.root.columnconfigure(0, weight=1)
-        self.root.rowconfigure(0, weight=1)
+        self.root.rowconfigure(1, weight=1)  # 更改为第1行
         main_frame.columnconfigure(0, weight=1)
         main_frame.rowconfigure(2, weight=1)
         
@@ -145,9 +153,9 @@ class DeepSeekChatApp:
     def create_custom_menu(self):
         """创建自定义顶部栏（非 macOS 或 Windows 风格）"""
         top_bar_frame = tk.Frame(self.root, bg="#f0f0f0", height=30, bd=1, relief=tk.RAISED)
-        top_bar_frame.grid(row=0, column=0, columnspan=2, sticky=tk.W+tk.E, pady=(0, 10))
-        top_bar_frame.grid_propagate(False)
-
+        # 将顶部栏放置在网格的第0行，确保它始终在最顶部
+        top_bar_frame.grid(row=0, column=0, sticky=tk.W+tk.E)
+        
         # 文件菜单按钮
         file_mb = tk.Menubutton(top_bar_frame, text="文件", activebackground="#e1e1e1", bg="#f0f0f0", relief=tk.FLAT)
         file_mb.pack(side=tk.LEFT, padx=5, pady=2)
