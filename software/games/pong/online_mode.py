@@ -21,12 +21,13 @@ class NetworkManager:
         self.sock.bind(('', settings.PORT))
         self.sock.setblocking(False)
         self.message_queue = deque()
+        self.running = True
         self.thread = threading.Thread(target=self._listen, daemon=True)
         self.thread.start()
 
     def _listen(self):
         """在独立线程中持续监听传入的数据包"""
-        while True:
+        while self.running:
             try:
                 data, addr = self.sock.recvfrom(1024)
                 if addr[0] != settings.MY_IP:
@@ -37,12 +38,15 @@ class NetworkManager:
                         pass
             except BlockingIOError:
                 pass
+            except OSError: # Socket was closed
+                break
             time.sleep(0.001)
 
     def send(self, data, addr):
         """发送数据到指定地址"""
         try:
-            self.sock.sendto(json.dumps(data).encode(), addr)
+            if self.running:
+                self.sock.sendto(json.dumps(data).encode(), addr)
         except OSError as e:
             print(f"发送数据时出错: {e}")
 
@@ -55,6 +59,13 @@ class NetworkManager:
         if self.message_queue:
             return self.message_queue.popleft()
         return None
+
+    def close(self):
+        """关闭socket并停止监听线程"""
+        self.running = False
+        self.sock.close()
+        self.thread.join(timeout=0.2)
+        print("Network socket closed.")
 
 # =============================================================================
 # 在线游戏主类
@@ -109,6 +120,8 @@ class OnlineGame:
             self.update(dt)
             self.draw()
             pygame.display.flip()
+        
+        self.network.close() # 在退出循环后关闭网络连接
 
     # --- 输入处理 ---
     def handle_input(self, events):
