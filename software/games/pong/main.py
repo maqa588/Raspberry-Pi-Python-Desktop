@@ -1,10 +1,10 @@
 import pygame
 import sys
-import settings as settings
+import time
+import settings
 import ui_elements
 import single_player_mode
 import online_mode
-import time
 
 def main_menu():
     """
@@ -41,6 +41,10 @@ def main_menu():
                     elif selection_index == 2:
                         pygame.quit()
                         sys.exit()
+                 elif event.button == 1: # B button to quit
+                    pygame.quit()
+                    sys.exit()
+
 
         # --- 菜单导航 ---
         axis_y = 0
@@ -83,3 +87,4 @@ def create_pong_game():
 
 if __name__ == "__main__":
     create_pong_game()
+

@@ -142,30 +142,48 @@ class OnlineGame:
             if event.type == pygame.JOYBUTTONDOWN:
                 if self.invitation: self.handle_popup_input('joy_down', event.button)
                 elif self.game_mode == 'LOBBY': self.handle_lobby_input('joy_down', event.button)
-                elif self.game_mode == 'PLAYING' and self.is_host: self.game_mode = 'PAUSED'
+                # Select键 (通常是 button 6) 暂停
+                elif event.button == 6 and self.game_mode == 'PLAYING' and self.is_host: 
+                    self.game_mode = 'PAUSED'
                 elif self.game_mode == 'PAUSED': self.handle_pause_input('joy_down', event.button)
                 elif self.game_mode == 'GAME_OVER': self.handle_game_over_input('joy_down', event.button)
 
-        axis_y = 0
+        # --- 摇杆/十字键连续输入 (用于菜单导航) ---
+        axis_y, axis_x = 0, 0
         if self.joysticks:
-            axis_y = self.joysticks[0].get_axis(1)
+            axis_y = self.joysticks[0].get_axis(1) # 左摇杆 Y
+            axis_x = self.joysticks[0].get_axis(0) # 左摇杆 X
             if self.joysticks[0].get_numhats() > 0:
-                axis_y += -self.joysticks[0].get_hat(0)[1]
+                hat_x, hat_y = self.joysticks[0].get_hat(0)
+                axis_y -= hat_y # 十字键 Y
+                axis_x += hat_x  # 十字键 X
 
         keys = pygame.key.get_pressed()
-        key_up = keys[pygame.K_UP] or keys[pygame.K_w]
-        key_down = keys[pygame.K_DOWN] or keys[pygame.K_s]
         
         if time.time() - self.last_axis_move > 0.2:
             moved = False
+            # 垂直导航
+            key_up = keys[pygame.K_UP] or keys[pygame.K_w]
+            key_down = keys[pygame.K_DOWN] or keys[pygame.K_s]
             if axis_y < -0.5 or key_up:
                 self.selection_index -= 1; moved = True
             elif axis_y > 0.5 or key_down:
                 self.selection_index += 1; moved = True
+            
+            # 水平导航 (仅用于邀请弹窗)
+            if self.invitation:
+                key_left = keys[pygame.K_LEFT] or keys[pygame.K_a]
+                key_right = keys[pygame.K_RIGHT] or keys[pygame.K_d]
+                if axis_x < -0.5 or key_left:
+                    self.selection_index = 0; moved = True # 同意
+                elif axis_x > 0.5 or key_right:
+                    self.selection_index = 1; moved = True # 拒绝
+
             if moved:
                 self.last_axis_move = time.time()
 
     def handle_lobby_input(self, type, value):
+        # A键 或 Enter
         if (type == 'kb_down' and value == pygame.K_RETURN) or (type == 'joy_down' and value == 0):
             player_list = list(self.found_players.items())
             if self.selection_index < len(player_list):
@@ -176,26 +194,26 @@ class OnlineGame:
                 self.popup_message = f"邀请 {name} 中..."
             else: # 返回主菜单
                 self.game_mode = 'MENU'
+        # B键 或 Escape
+        elif (type == 'kb_down' and value == pygame.K_ESCAPE) or (type == 'joy_down' and value == 1):
+            self.game_mode = 'MENU'
 
     def handle_pause_input(self, type, value):
         if not self.is_host: return
+        # A键 或 Enter
         if (type == 'kb_down' and value == pygame.K_RETURN) or (type == 'joy_down' and value == 0):
-            if self.selection_index == 0:
+            if self.selection_index == 0: # 继续
                 self.game_mode = 'PLAYING'
                 self.network.send({'type': 'resume'}, self.opponent_addr)
+        # B键 或 Q
         elif (type == 'kb_down' and value == pygame.K_q) or (type == 'joy_down' and value == 1):
-             if self.selection_index == 1:
+             if self.selection_index == 1: # 退出
                 self.network.send({'type': 'quit'}, self.opponent_addr)
                 self.reset_game_state()
 
     def handle_popup_input(self, type, value):
-        if (type == 'kb_down' and (value == pygame.K_LEFT or value == pygame.K_a)) or \
-           (self.joysticks and self.joysticks[0].get_axis(0) < -0.5):
-            self.selection_index = 0
-        elif (type == 'kb_down' and (value == pygame.K_RIGHT or value == pygame.K_d)) or \
-             (self.joysticks and self.joysticks[0].get_axis(0) > 0.5):
-            self.selection_index = 1
-
+        # 导航在 handle_input 中处理
+        # A键 或 Enter 确认选择
         if (type == 'kb_down' and value == pygame.K_RETURN) or (type == 'joy_down' and value == 0):
             if self.selection_index == 0: # 同意
                 self.is_host = False
@@ -205,17 +223,23 @@ class OnlineGame:
             else: # 拒绝
                 self.network.send({'type': 'decline'}, self.invitation['addr'])
             self.invitation = None
+        # B键 或 Escape 拒绝
+        elif (type == 'kb_down' and value == pygame.K_ESCAPE) or (type == 'joy_down' and value == 1):
+            self.network.send({'type': 'decline'}, self.invitation['addr'])
+            self.invitation = None
     
     def handle_game_over_input(self, type, value):
-        if self.my_choice: return  # 如果已经做出选择，则忽略输入
+        if self.my_choice: return
 
+        # A键 或 Enter
         if (type == 'kb_down' and value == pygame.K_RETURN) or (type == 'joy_down' and value == 0):
-            if self.selection_index == 0:  # 再玩一局
-                self.my_choice = 'rematch'
-            else:  # 返回大厅
-                self.my_choice = 'quit'
-            
+            choice = 'rematch' if self.selection_index == 0 else 'quit'
+            self.my_choice = choice
             self.network.send({'type': 'post_game_choice', 'choice': self.my_choice}, self.opponent_addr)
+        # B键 或 Escape
+        elif (type == 'kb_down' and value == pygame.K_ESCAPE) or (type == 'joy_down' and value == 1):
+             self.my_choice = 'quit'
+             self.network.send({'type': 'post_game_choice', 'choice': self.my_choice}, self.opponent_addr)
 
     # --- 网络消息处理 ---
     def handle_network(self):
@@ -292,7 +316,9 @@ class OnlineGame:
                 p2_dy = 0
                 if keys[pygame.K_UP]: p2_dy = -1
                 if keys[pygame.K_DOWN]: p2_dy = 1
-                if self.joysticks: p2_dy += self.joysticks[0].get_axis(3) if self.joysticks[0].get_numaxes() > 3 else self.joysticks[0].get_axis(1)
+                if self.joysticks:
+                    if self.joysticks[0].get_numaxes() > 3:
+                        p2_dy += self.joysticks[0].get_axis(3) # 右摇杆Y
                 self.right_paddle.move(p2_dy, dt)
                 self.network.send({'type': 'paddle_pos', 'y': self.right_paddle.rect.y}, self.opponent_addr)
             
@@ -378,8 +404,8 @@ class OnlineGame:
         ui_elements.draw_text("游戏暂停", settings.FONT_L, settings.WHITE, settings.WINDOW, settings.WIDTH/2, settings.HEIGHT/4)
         if self.is_host:
             self.selection_index %= 2
-            ui_elements.draw_button("继续游戏 (Enter)", settings.FONT_M, settings.WINDOW, pygame.Rect(settings.WIDTH/2-125, 150, 250, 40), self.selection_index, 0)
-            ui_elements.draw_button("退出到大厅 (Q)", settings.FONT_M, settings.WINDOW, pygame.Rect(settings.WIDTH/2-125, 200, 250, 40), self.selection_index, 1)
+            ui_elements.draw_button("继续游戏 (A键/Enter)", settings.FONT_M, settings.WINDOW, pygame.Rect(settings.WIDTH/2-125, 150, 250, 40), self.selection_index, 0)
+            ui_elements.draw_button("退出到大厅 (B键/Q)", settings.FONT_M, settings.WINDOW, pygame.Rect(settings.WIDTH/2-125, 200, 250, 40), self.selection_index, 1)
         else:
             ui_elements.draw_text("等待主机继续游戏...", settings.FONT_M, settings.GRAY, settings.WINDOW, settings.WIDTH/2, settings.HEIGHT/2)
 
@@ -392,8 +418,8 @@ class OnlineGame:
         ui_elements.draw_text(f"来自: {self.invitation['name']}", settings.FONT_S, settings.GRAY, settings.WINDOW, settings.WIDTH/2, box_rect.y + 60)
         self.selection_index %= 2
         button_width = (box_rect.width / 2) - 20
-        ui_elements.draw_button("同意", settings.FONT_S, settings.WINDOW, pygame.Rect(box_rect.x + 15, box_rect.y + 100, button_width, 40), self.selection_index, 0)
-        ui_elements.draw_button("拒绝", settings.FONT_S, settings.WINDOW, pygame.Rect(box_rect.right - button_width - 15, box_rect.y + 100, button_width, 40), self.selection_index, 1)
+        ui_elements.draw_button("同意 (A键)", settings.FONT_S, settings.WINDOW, pygame.Rect(box_rect.x + 15, box_rect.y + 100, button_width, 40), self.selection_index, 0)
+        ui_elements.draw_button("拒绝 (B键)", settings.FONT_S, settings.WINDOW, pygame.Rect(box_rect.right - button_width - 15, box_rect.y + 100, button_width, 40), self.selection_index, 1)
 
     def draw_game_over(self):
         overlay = pygame.Surface((settings.WIDTH, settings.HEIGHT), pygame.SRCALPHA); overlay.fill((0, 0, 0, 180)); settings.WINDOW.blit(overlay, (0,0))
@@ -409,8 +435,8 @@ class OnlineGame:
             ui_elements.draw_text(opp_choice_map[self.opponent_choice], settings.FONT_S, settings.GRAY, settings.WINDOW, settings.WIDTH/2, 190)
         else:
             self.selection_index %= 2
-            ui_elements.draw_button("再玩一局", settings.FONT_M, settings.WINDOW, pygame.Rect(settings.WIDTH/2 - 125, 160, 250, 40), self.selection_index, 0)
-            ui_elements.draw_button("返回大厅", settings.FONT_M, settings.WINDOW, pygame.Rect(settings.WIDTH/2 - 125, 210, 250, 40), self.selection_index, 1)
+            ui_elements.draw_button("再玩一局 (A键)", settings.FONT_M, settings.WINDOW, pygame.Rect(settings.WIDTH/2 - 125, 160, 250, 40), self.selection_index, 0)
+            ui_elements.draw_button("返回大厅 (B键)", settings.FONT_M, settings.WINDOW, pygame.Rect(settings.WIDTH/2 - 125, 210, 250, 40), self.selection_index, 1)
 
 
 def run_online_mode():
