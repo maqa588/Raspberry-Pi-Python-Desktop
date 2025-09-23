@@ -37,13 +37,13 @@ except pygame.error:
 class Paddle:
     def __init__(self, x, y):
         self.rect = pygame.Rect(x, y, PADDLE_WIDTH, PADDLE_HEIGHT)
-        self.speed = 9
+        self.speed = 200 # 单位：像素/秒
 
     def draw(self, surface):
         pygame.draw.rect(surface, WHITE, self.rect)
 
-    def move(self, dy):
-        self.rect.y += dy
+    def move(self, dy, dt):
+        self.rect.y += dy * self.speed * dt
         if self.rect.top < 0:
             self.rect.top = 0
         if self.rect.bottom > HEIGHT:
@@ -52,15 +52,15 @@ class Paddle:
 class Ball:
     def __init__(self):
         self.rect = pygame.Rect(WIDTH // 2 - BALL_RADIUS, HEIGHT // 2 - BALL_RADIUS, BALL_RADIUS * 2, BALL_RADIUS * 2)
-        self.speed_x = 5
-        self.speed_y = 5
+        self.speed_x = 250 # 单位：像素/秒
+        self.speed_y = 250 # 单位：像素/秒
 
     def draw(self, surface):
         pygame.draw.ellipse(surface, WHITE, self.rect)
 
-    def move(self):
-        self.rect.x += self.speed_x
-        self.rect.y += self.speed_y
+    def move(self, dt):
+        self.rect.x += self.speed_x * dt
+        self.rect.y += self.speed_y * dt
         
     def reset(self):
         self.rect.center = (WIDTH // 2, HEIGHT // 2)
@@ -91,16 +91,19 @@ def main():
     for j in joysticks:
         j.init()
     
-    # 打印手柄信息
-    if joysticks:
-        print(f"找到手柄：{joysticks[0].get_name()}")
-        print(f"按钮数量：{joysticks[0].get_numbuttons()}")
-        print(f"摇杆数量：{joysticks[0].get_numaxes()}")
+    print("手柄信息：")
+    for j in joysticks:
+        print(f"  名称: {j.get_name()}")
+        print(f"  按钮数量: {j.get_numbuttons()}")
+        print(f"  摇杆数量: {j.get_numaxes()}")
     
     clock = pygame.time.Clock()
 
     running = True
     while running:
+        # 获取自上一帧以来的时间，以秒为单位
+        dt = clock.tick(60) / 1000.0
+
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
@@ -114,12 +117,9 @@ def main():
                     elif event.key == pygame.K_q:
                         running = False
             
-            # 手柄按钮事件
             if event.type == pygame.JOYBUTTONDOWN:
-                print(f"手柄按钮按下：{event.button}")  # 打印按钮编号
-                # **根据你打印出的编号，在这里修改你的 Select 键编号**
-                # 例如，如果你的 Select 键是按钮 7，将 if event.button == 8 改为 if event.button == 7
-                if event.button == 4: 
+                print(f"手柄按钮按下：{event.button}")
+                if event.button == 8: # 假设你的 Select 键是按钮 8
                     game_paused = not game_paused
                 
                 if game_paused:
@@ -135,27 +135,21 @@ def main():
         # 键盘控制
         keys = pygame.key.get_pressed()
         if keys[pygame.K_w]:
-            left_paddle.move(-left_paddle.speed)
+            left_paddle.move(-1, dt)
         if keys[pygame.K_s]:
-            left_paddle.move(left_paddle.speed)
-        
-        # 移除鼠标控制部分
-        # mouse_pos = pygame.mouse.get_pos()
-        # right_paddle.rect.centery = mouse_pos[1]
+            left_paddle.move(1, dt)
 
         # 游戏手柄控制
         for j in joysticks:
             if j.get_init():
-                # 左侧球拍（左摇杆Y轴）
                 left_axis_y = j.get_axis(1)
-                left_paddle.move(left_axis_y * left_paddle.speed)
+                left_paddle.move(left_axis_y, dt)
                 
-                # 右侧球拍（右摇杆Y轴）
                 right_axis_y = j.get_axis(3)
-                right_paddle.move(right_axis_y * right_paddle.speed)
+                right_paddle.move(right_axis_y, dt)
 
         # 移动球
-        ball.move()
+        ball.move(dt)
 
         # 碰撞检测 - 墙壁
         if ball.rect.top <= 0 or ball.rect.bottom >= HEIGHT:
@@ -178,8 +172,6 @@ def main():
         pygame.draw.aaline(WINDOW, WHITE, (WIDTH // 2, 0), (WIDTH // 2, HEIGHT)) # 中线
         
         pygame.display.flip()
-        
-        clock.tick(60)
 
     pygame.quit()
     sys.exit()
