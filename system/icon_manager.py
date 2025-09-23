@@ -2,7 +2,7 @@
 import json
 import os
 # 从新的模块导入加载和保存函数
-from system.appdirs_pack import load_user_config, save_user_config
+from system.platformdirs_pack import load_user_config, save_user_config
 from system.desktop_icon import DesktopIcon
 
 class IconManager:

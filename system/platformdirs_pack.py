@@ -1,11 +1,18 @@
-# system/appdirs_pack.py
+# system/platformdirs_pack.py
 import sys
 import os
 import json
-from appdirs import user_data_dir
+from platformdirs import PlatformDirs
 
+# 使用 platformdirs 的推荐方式来定义应用名称和作者
 APP_NAME = "RaspberryPiDesktop"
-APP_AUTHOR = "Spencer Maqa" 
+APP_AUTHOR = "Spencer Maqa"
+
+# 创建 PlatformDirs 实例，它会自动处理不同操作系统下的路径
+# 注意：不建议在模块顶层创建实例，因为它会在每次导入时运行。
+# 最好在函数内部创建实例，或者用一个全局变量来管理。
+# 为了保持和原代码的结构一致，这里将其作为全局变量。
+dirs = PlatformDirs(APP_NAME, APP_AUTHOR)
 
 def get_config_path(filename="desktop_layout.json"):
     """
@@ -17,7 +24,8 @@ def get_config_path(filename="desktop_layout.json"):
     返回:
         str: 配置文件的完整路径。
     """
-    data_dir = user_data_dir(APP_NAME, APP_AUTHOR)
+    # 使用 platformdirs 的 user_data_dir 属性来获取用户数据目录
+    data_dir = dirs.user_data_dir
     if not os.path.exists(data_dir):
         os.makedirs(data_dir)
     return os.path.join(data_dir, filename)
@@ -49,6 +57,7 @@ def load_user_config(filename="desktop_layout.json"):
         else:
             base_path = os.path.dirname(os.path.abspath(__file__))
         
+        # 确保默认路径正确，这里假定默认文件在上一级目录下的 'system' 文件夹中
         default_path = os.path.join(base_path, '..', 'system', filename)
         
         # 再次尝试从默认路径加载
@@ -75,4 +84,4 @@ def save_user_config(data, filename="desktop_layout.json"):
             print(f"配置文件已成功保存到: {config_path}")
     except Exception as e:
         print(f"保存配置文件时出错: {e}")
-        print(f"错误: {e}")
+        # 这里需要修正原代码的重复打印

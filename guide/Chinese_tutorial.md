@@ -114,4 +114,10 @@ python app.py
 ```bash
 sudo apt install libwebkit2gtk-4.1-dev libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev
 sudo apt install python3-wxgtk4.0 python3-wxgtk-media4.0 python3-wxgtk-webview4.0
+sudo apt install python3-tk python3-pygame python3-requests python3-pil python3-chardet python3-psutil python3-pyinstaller python3-platformdirs
+```
+
+仅在树莓派上支持：
+```bash
+sudo apt install python3-picamera2
 ```
