@@ -48,6 +48,10 @@ class LogicHandler:
             return self.open_editor
         elif icon_id == "camera":
             return self.open_camera
+        elif icon_id == "deepseek":
+            return self.open_deepseek
+        elif icon_id == "games":
+            return self.open_game
         else:
             return lambda: messagebox.showinfo("操作", f"双击了图标: {icon_id}\n请在此处实现您的功能！")
 
@@ -80,6 +84,12 @@ class LogicHandler:
 
     def open_camera(self):
         self._launch_app_thread("camera", "相机")
+    
+    def open_deepseek(self):
+        self._launch_app_thread("deepseek", "Deepseek")
+
+    def open_game(self):
+        self._launch_app_thread("games", "游戏")
 
     def menu_placeholder_function(self):
         messagebox.showinfo("提示", "此菜单功能待实现！")

@@ -17,6 +17,8 @@ from software.file_editor import open_file_editor
 from software.camera import open_camera_system
 from software.terminal import open_terminal_system
 from software.file_manager_init import open_file_manager
+from software.deepseek import open_deepseek
+from software.game import open_pong_game
 
 # 获取项目的根目录，以便于子进程能够正确找到模块
 # PyInstaller 打包后，sys.executable 所在目录就是项目的根目录
@@ -70,7 +72,9 @@ class DesktopApp:
             'browser': open_browser,
             'editor': open_file_editor,
             'camera': open_camera_system,
-            'terminal': open_terminal_system
+            'terminal': open_terminal_system,
+            'deepseek': open_deepseek,
+            'games': open_pong_game,
         }
         
         # 1. 初始化 LogicHandler

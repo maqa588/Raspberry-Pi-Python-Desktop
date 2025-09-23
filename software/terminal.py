@@ -3,6 +3,13 @@ import platform
 import subprocess
 import tkinter as tk
 from tkinter import messagebox
+import sys
+import os
+
+current_file_path = os.path.abspath(__file__)
+project_root = os.path.dirname(os.path.dirname(current_file_path))
+sys.path.insert(0, project_root)
+
 from system.config import TERMINAL_WIDTH, TERMINAL_HEIGHT
 from system.button.about import show_system_about, show_developer_about
 from system.wireless.wifi import show_wifi_configure

@@ -39,6 +39,7 @@ MANIFEST
 *.manifest
 *.spec
 !pack/pyinstaller_all.spec
+software/deepseek-api.txt
 
 # Installer logs
 pip-log.txt
