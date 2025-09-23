@@ -87,6 +87,12 @@ class OnlineGame:
         self.selection_index = 0
         self.last_axis_move = 0
 
+        # 游戏结束后的选择状态
+        self.my_choice = None
+        self.opponent_choice = None
+        self.winner = None
+
+
     def run(self):
         """游戏主循环"""
         running = True
@@ -167,7 +173,6 @@ class OnlineGame:
         elif (type == 'kb_down' and value == pygame.K_q) or (type == 'joy_down' and value == 1):
              if self.selection_index == 1:
                 self.network.send({'type': 'quit'}, self.opponent_addr)
-                self.game_mode = 'LOBBY'
                 self.reset_game_state()
 
     def handle_popup_input(self, type, value):
@@ -189,9 +194,15 @@ class OnlineGame:
             self.invitation = None
     
     def handle_game_over_input(self, type, value):
+        if self.my_choice: return  # 如果已经做出选择，则忽略输入
+
         if (type == 'kb_down' and value == pygame.K_RETURN) or (type == 'joy_down' and value == 0):
-            self.game_mode = 'LOBBY'
-            self.reset_game_state()
+            if self.selection_index == 0:  # 再玩一局
+                self.my_choice = 'rematch'
+            else:  # 返回大厅
+                self.my_choice = 'quit'
+            
+            self.network.send({'type': 'post_game_choice', 'choice': self.my_choice}, self.opponent_addr)
 
     # --- 网络消息处理 ---
     def handle_network(self):
@@ -204,7 +215,7 @@ class OnlineGame:
         if msg_type == 'discover':
             self.network.send({'type': 'discover_response', 'name': settings.MY_USERNAME}, addr)
         elif msg_type == 'discover_response':
-            if addr[0] not in self.found_players:
+            if addr[0] not in self.found_players and addr[0] != settings.MY_IP:
                 self.found_players[addr[0]] = message['data'].get('name', 'Unknown')
         elif msg_type == 'invite' and not self.opponent_addr:
             self.invitation = {'addr': addr, 'name': message['data'].get('name', 'Unknown')}
@@ -214,8 +225,7 @@ class OnlineGame:
             self.game_mode = 'PLAYING'
             self.popup_message = None
         elif msg_type == 'decline' and self.game_mode == 'WAITING':
-            self.game_mode = 'LOBBY'
-            self.opponent_addr = None
+            self.reset_game_state()
             self.popup_message = "对方拒绝了你的邀请"
             self.popup_timer = time.time() + 3
         elif msg_type == 'game_state' and not self.is_host:
@@ -230,10 +240,24 @@ class OnlineGame:
         elif msg_type == 'resume':
             if not self.is_host: self.game_mode = 'PLAYING'
         elif msg_type == 'quit':
-            self.game_mode = 'LOBBY'
             self.reset_game_state()
             self.popup_message = "对方已断开连接"
             self.popup_timer = time.time() + 3
+        elif msg_type == 'game_over' and not self.is_host:
+            self.game_mode = 'GAME_OVER'
+            self.winner = message['data'].get('winner')
+            self.selection_index = 0
+        elif msg_type == 'post_game_choice':
+            self.opponent_choice = message['data'].get('choice')
+        elif msg_type == 'rematch_accepted' and not self.is_host:
+            self.score = {'p1': 0, 'p2': 0}
+            self.ball.reset(1)
+            self.my_choice = None
+            self.opponent_choice = None
+            self.game_mode = 'PLAYING'
+        elif msg_type == 'back_to_lobby':
+            self.reset_game_state()
+
             
     # --- 游戏逻辑更新 ---
     def update(self, dt):
@@ -255,7 +279,7 @@ class OnlineGame:
                 p2_dy = 0
                 if keys[pygame.K_UP]: p2_dy = -1
                 if keys[pygame.K_DOWN]: p2_dy = 1
-                if self.joysticks: p2_dy += self.joysticks[0].get_axis(3) if len(self.joysticks[0].get_axis()) > 3 else self.joysticks[0].get_axis(1)
+                if self.joysticks: p2_dy += self.joysticks[0].get_axis(3) if self.joysticks[0].get_numaxes() > 3 else self.joysticks[0].get_axis(1)
                 self.right_paddle.move(p2_dy, dt)
                 self.network.send({'type': 'paddle_pos', 'y': self.right_paddle.rect.y}, self.opponent_addr)
             
@@ -267,17 +291,38 @@ class OnlineGame:
                 if self.ball.rect.colliderect(self.right_paddle.rect) and self.ball.speed_x > 0: self.ball.speed_x *= -1.05
                 if self.ball.rect.left <= 0: self.score['p2'] += 1; self.ball.reset(1)
                 if self.ball.rect.right >= settings.WIDTH: self.score['p1'] += 1; self.ball.reset(-1)
-                if self.score['p1'] >= settings.WINNING_SCORE or self.score['p2'] >= settings.WINNING_SCORE:
-                    self.game_mode = 'GAME_OVER'; self.selection_index = 0
                 
-                game_state_data = {
-                    'ball_x': self.ball.rect.centerx, 'ball_y': self.ball.rect.centery,
-                    'p1_y': self.left_paddle.rect.y, 'score': self.score,
-                }
-                self.network.send({'type': 'game_state', 'state': game_state_data}, self.opponent_addr)
+                if self.score['p1'] >= settings.WINNING_SCORE or self.score['p2'] >= settings.WINNING_SCORE:
+                    self.game_mode = 'GAME_OVER'
+                    self.selection_index = 0
+                    self.winner = "P1" if self.score['p1'] > self.score['p2'] else "P2"
+                    self.network.send({'type': 'game_over', 'winner': self.winner}, self.opponent_addr)
+                else:
+                    game_state_data = {
+                        'ball_x': self.ball.rect.centerx, 'ball_y': self.ball.rect.centery,
+                        'p1_y': self.left_paddle.rect.y, 'score': self.score,
+                    }
+                    self.network.send({'type': 'game_state', 'state': game_state_data}, self.opponent_addr)
 
         elif self.game_mode == 'PAUSED' and self.is_host:
             self.network.send({'type': 'pause'}, self.opponent_addr)
+        
+        elif self.game_mode == 'GAME_OVER':
+            # 只有主机负责处理双方选择后的逻辑
+            if self.is_host and self.my_choice and self.opponent_choice:
+                if self.my_choice == 'rematch' and self.opponent_choice == 'rematch':
+                    # 主机重置状态
+                    self.score = {'p1': 0, 'p2': 0}
+                    self.ball.reset()
+                    self.my_choice = None
+                    self.opponent_choice = None
+                    self.game_mode = 'PLAYING'
+                    # 通知客户端也重置
+                    self.network.send({'type': 'rematch_accepted'}, self.opponent_addr)
+                else: # 任意一方选择退出
+                    self.network.send({'type': 'back_to_lobby'}, self.opponent_addr)
+                    self.reset_game_state()
+
 
     # --- 渲染 ---
     def draw(self):
@@ -321,7 +366,7 @@ class OnlineGame:
         if self.is_host:
             self.selection_index %= 2
             ui_elements.draw_button("继续游戏 (Enter)", settings.FONT_M, settings.WINDOW, pygame.Rect(settings.WIDTH/2-125, 150, 250, 40), self.selection_index, 0)
-            ui_elements.draw_button("退出到菜单 (Q)", settings.FONT_M, settings.WINDOW, pygame.Rect(settings.WIDTH/2-125, 200, 250, 40), self.selection_index, 1)
+            ui_elements.draw_button("退出到大厅 (Q)", settings.FONT_M, settings.WINDOW, pygame.Rect(settings.WIDTH/2-125, 200, 250, 40), self.selection_index, 1)
         else:
             ui_elements.draw_text("等待主机继续游戏...", settings.FONT_M, settings.GRAY, settings.WINDOW, settings.WIDTH/2, settings.HEIGHT/2)
 
@@ -339,13 +384,24 @@ class OnlineGame:
 
     def draw_game_over(self):
         overlay = pygame.Surface((settings.WIDTH, settings.HEIGHT), pygame.SRCALPHA); overlay.fill((0, 0, 0, 180)); settings.WINDOW.blit(overlay, (0,0))
-        winner = "P1" if self.score['p1'] > self.score['p2'] else "P2"
-        ui_elements.draw_text("游戏结束", settings.FONT_L, settings.WHITE, settings.WINDOW, settings.WIDTH/2, settings.HEIGHT/4)
-        ui_elements.draw_text(f"玩家 {winner} 胜利!", settings.FONT_M, settings.GREEN, settings.WINDOW, settings.WIDTH/2, settings.HEIGHT/2 - 20)
-        self.selection_index = 0
-        ui_elements.draw_button("返回大厅 (Enter)", settings.FONT_M, settings.WINDOW, pygame.Rect(settings.WIDTH/2 - 125, settings.HEIGHT - 100, 250, 50), self.selection_index, 0)
+        winner_text = self.winner or ("P1" if self.score['p1'] > self.score['p2'] else "P2")
+        ui_elements.draw_text("游戏结束", settings.FONT_L, settings.WHITE, settings.WINDOW, settings.WIDTH/2, 60)
+        ui_elements.draw_text(f"玩家 {winner_text} 胜利!", settings.FONT_M, settings.GREEN, settings.WINDOW, settings.WIDTH/2, 110)
+        
+        if self.my_choice:
+            my_choice_map = {'rematch': '再玩一局', 'quit': '返回大厅'}
+            opp_choice_map = {'rematch': '对方选择再玩一局', 'quit': '对方选择返回大厅', None: '等待对方选择...'}
+            
+            ui_elements.draw_text(f"你选择了: {my_choice_map[self.my_choice]}", settings.FONT_S, settings.WHITE, settings.WINDOW, settings.WIDTH/2, 160)
+            ui_elements.draw_text(opp_choice_map[self.opponent_choice], settings.FONT_S, settings.GRAY, settings.WINDOW, settings.WIDTH/2, 190)
+        else:
+            self.selection_index %= 2
+            ui_elements.draw_button("再玩一局", settings.FONT_M, settings.WINDOW, pygame.Rect(settings.WIDTH/2 - 125, 160, 250, 40), self.selection_index, 0)
+            ui_elements.draw_button("返回大厅", settings.FONT_M, settings.WINDOW, pygame.Rect(settings.WIDTH/2 - 125, 210, 250, 40), self.selection_index, 1)
+
 
 def run_online_mode():
     """初始化并运行在线游戏模式。"""
     game = OnlineGame()
     game.run()
+
