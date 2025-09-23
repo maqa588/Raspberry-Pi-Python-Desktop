@@ -52,8 +52,8 @@ class Paddle:
 class Ball:
     def __init__(self):
         self.rect = pygame.Rect(WIDTH // 2 - BALL_RADIUS, HEIGHT // 2 - BALL_RADIUS, BALL_RADIUS * 2, BALL_RADIUS * 2)
-        self.speed_x = 250 # 单位：像素/秒
-        self.speed_y = 250 # 单位：像素/秒
+        self.speed_x = 150 # 单位：像素/秒
+        self.speed_y = 150 # 单位：像素/秒
 
     def draw(self, surface):
         pygame.draw.ellipse(surface, WHITE, self.rect)
@@ -134,10 +134,18 @@ def main():
 
         # 键盘控制
         keys = pygame.key.get_pressed()
+        
+        # 控制左侧球拍 (W/S 键)
         if keys[pygame.K_w]:
             left_paddle.move(-1, dt)
         if keys[pygame.K_s]:
             left_paddle.move(1, dt)
+            
+        # 控制右侧球拍 (上/下箭头键)
+        if keys[pygame.K_UP]:
+            right_paddle.move(-1, dt)
+        if keys[pygame.K_DOWN]:
+            right_paddle.move(1, dt)
 
         # 游戏手柄控制
         for j in joysticks:
