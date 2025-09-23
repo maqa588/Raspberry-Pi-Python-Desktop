@@ -19,16 +19,8 @@ if sys.platform == 'darwin':
     except ImportError:
         pass
 
-# from system.config import WINDOW_WIDTH, WINDOW_HEIGHT
-# from system.button.about import show_system_about, show_developer_about
-
-# 假设的常量和函数，以确保代码可运行
-WINDOW_WIDTH = 800
-WINDOW_HEIGHT = 600
-def show_system_about(root):
-    messagebox.showinfo("系统信息", "这是一个模拟的系统信息对话框。")
-def show_developer_about(root):
-    messagebox.showinfo("开发者信息", "这是一个模拟的开发者信息对话框。")
+from system.config import WINDOW_WIDTH, WINDOW_HEIGHT
+from system.button.about import show_system_about, show_developer_about
 
 class DeepSeekChatApp:
     def __init__(self, root):
