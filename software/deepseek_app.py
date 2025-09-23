@@ -166,17 +166,8 @@ class DeepSeekChatApp:
         about_menu.add_command(label="开发者信息", command=lambda:show_developer_about(self.root))
         about_mb.config(menu=about_menu)
 
-        quit_btn = tk.Button(top_bar_frame, text="X", command=self.on_closing, relief=tk.FLAT, bg="#f0f0f0", fg="red", activebackground="#e1e1e1")
+        quit_btn = tk.Button(top_bar_frame, text="X", command=self.root.quit, relief=tk.FLAT, bg="#f0f0f0", fg="red", activebackground="#e1e1e1")
         quit_btn.pack(side=tk.RIGHT, padx=5, pady=2)
-
-    def show_about(self):
-        """显示关于本应用的对话框"""
-        messagebox.showinfo(
-            "关于 DeepSeek AI 聊天助手",
-            "这是一个基于 Python Tkinter 和 DeepSeek API 构建的聊天助手。\n\n"
-            "开发者：您的名字\n"
-            "版本：1.0"
-        )
     
     def export_conversation(self):
         """导出当前聊天记录到TXT文件"""
