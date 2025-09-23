@@ -62,33 +62,51 @@ class DeepSeekChatApp:
         self.api_entry = ttk.Entry(api_frame, width=50)
         self.api_entry.pack(side=tk.LEFT, padx=(5, 0), expand=True, fill=tk.X)
         
-        # 聊天记录显示区域
-        ttk.Label(main_frame, text="对话记录:").grid(row=1, column=0, sticky=tk.W, pady=(0, 5))
+        # 创建一个新框架来容纳对话记录和用户输入，实现左右布局
+        chat_and_input_frame = ttk.Frame(main_frame)
+        chat_and_input_frame.grid(row=2, column=0, sticky=(tk.W, tk.E, tk.N, tk.S), pady=(0, 10))
+        # 调整列权重，实现2:3的宽度比例
+        chat_and_input_frame.columnconfigure(0, weight=2)
+        chat_and_input_frame.columnconfigure(1, weight=3)
+        chat_and_input_frame.rowconfigure(0, weight=1)
         
+        # 聊天记录显示区域（左侧）
+        ttk.Label(chat_and_input_frame, text="对话记录:").grid(row=0, column=0, sticky=tk.N+tk.W, pady=(0, 5))
         self.chat_display = scrolledtext.ScrolledText(
-            main_frame, 
+            chat_and_input_frame, 
             width=80, 
             height=20, 
             wrap=tk.WORD,
             state=tk.DISABLED
         )
-        self.chat_display.grid(row=2, column=0, sticky=(tk.W, tk.E, tk.N, tk.S), pady=(0, 10))
+        self.chat_display.grid(row=1, column=0, sticky=(tk.W, tk.E, tk.N, tk.S), padx=(0, 5))
+        # 插入浅色提示文本
+        self.chat_display.config(state=tk.NORMAL)
+        self.chat_display.insert("1.0", "对话记录会输出在这里...", 'placeholder')
+        self.chat_display.config(state=tk.DISABLED)
+        self.chat_display.tag_config('placeholder', foreground='gray')
         
-        # 用户输入区域
-        ttk.Label(main_frame, text="你的消息:").grid(row=3, column=0, sticky=tk.W, pady=(0, 5))
-        
+        # 用户输入区域（右侧）
+        ttk.Label(chat_and_input_frame, text="你的消息:").grid(row=0, column=1, sticky=tk.N+tk.W, pady=(0, 5))
         self.user_input = scrolledtext.ScrolledText(
-            main_frame, 
+            chat_and_input_frame, 
             width=80, 
-            height=4, 
+            height=20,  # 高度与聊天记录区相同
             wrap=tk.WORD
         )
-        self.user_input.grid(row=4, column=0, sticky=(tk.W, tk.E), pady=(0, 10))
+        self.user_input.grid(row=1, column=1, sticky=(tk.W, tk.E, tk.N, tk.S), padx=(5, 0))
         self.user_input.focus()
+
+        # 浅色提示文本的逻辑
+        self.user_input.insert("1.0", "你的消息应该输入在这里...", 'placeholder')
+        self.user_input.tag_config('placeholder', foreground='gray')
         
-        # 按钮区域
+        self.user_input.bind("<FocusIn>", self.on_user_input_focus_in)
+        self.user_input.bind("<FocusOut>", self.on_user_input_focus_out)
+
+        # 按钮和状态栏区域
         button_frame = ttk.Frame(main_frame)
-        button_frame.grid(row=5, column=0, sticky=(tk.W, tk.E))
+        button_frame.grid(row=3, column=0, sticky=(tk.W, tk.E), pady=(0, 10))
         
         self.send_button = ttk.Button(
             button_frame, 
@@ -103,16 +121,29 @@ class DeepSeekChatApp:
             command=self.clear_conversation
         )
         self.clear_button.pack(side=tk.LEFT, padx=(0, 10))
+
+        # 状态栏，放置在按钮区域的最右边
+        self.status_var = tk.StringVar()
+        self.status_var.set("就绪")
+        status_bar = ttk.Label(button_frame, textvariable=self.status_var, relief=tk.SUNKEN)
+        status_bar.pack(side=tk.RIGHT, expand=True, fill=tk.X, padx=(10, 0))
         
         # 绑定Enter键发送消息（Ctrl+Enter）
         self.user_input.bind("<Control-Return>", lambda event: self.send_message())
-        
-        # 状态栏
-        self.status_var = tk.StringVar()
-        self.status_var.set("就绪")
-        status_bar = ttk.Label(main_frame, textvariable=self.status_var, relief=tk.SUNKEN)
-        status_bar.grid(row=6, column=0, sticky=(tk.W, tk.E), pady=(10, 0))
     
+    def on_user_input_focus_in(self, event):
+        """当输入框获得焦点时，如果内容是提示文本，则清空它"""
+        if self.user_input.get("1.0", "end-1c") == "你的消息应该输入在这里...":
+            self.user_input.delete("1.0", tk.END)
+            self.user_input.tag_remove('placeholder', "1.0", tk.END)
+            self.user_input.config(foreground='black')
+
+    def on_user_input_focus_out(self, event):
+        """当输入框失去焦点时，如果内容为空，则重新添加提示文本"""
+        if not self.user_input.get("1.0", "end-1c").strip():
+            self.user_input.delete("1.0", tk.END)
+            self.user_input.insert("1.0", "你的消息应该输入在这里...", 'placeholder')
+
     def create_menu(self):
         """根据操作系统动态创建菜单栏"""
         # 检查操作系统是否为 macOS 或 Windows
@@ -202,6 +233,11 @@ class DeepSeekChatApp:
     def send_message(self):
         """处理用户发送消息的逻辑"""
         user_message = self.user_input.get("1.0", tk.END).strip()
+        
+        # 如果是提示文本，则不发送
+        if user_message == "你的消息应该输入在这里...":
+            user_message = ""
+        
         api_key = self.api_entry.get().strip() or self.api_key
         
         if not user_message:
@@ -219,8 +255,9 @@ class DeepSeekChatApp:
         # 在聊天记录中显示用户消息
         self.display_message("你", user_message)
         
-        # 清空输入框
+        # 清空输入框并恢复提示文本
         self.user_input.delete("1.0", tk.END)
+        self.on_user_input_focus_out(None)
         
         # 在新线程中发送API请求，避免界面冻结
         thread = threading.Thread(
@@ -290,6 +327,14 @@ class DeepSeekChatApp:
         self.chat_display.config(state=tk.NORMAL)
         self.chat_display.delete("1.0", tk.END)
         self.chat_display.config(state=tk.DISABLED)
+        
+        # 重新插入提示文本
+        self.chat_display.config(state=tk.NORMAL)
+        self.chat_display.insert("1.0", "对话记录会输出在这里...", 'placeholder')
+        self.chat_display.config(state=tk.DISABLED)
+
+        self.user_input.delete("1.0", tk.END)
+        self.user_input.insert("1.0", "你的消息应该输入在这里...", 'placeholder')
         
         self.conversation_history = [
             {"role": "system", "content": "你是一个有用的助手。"}
