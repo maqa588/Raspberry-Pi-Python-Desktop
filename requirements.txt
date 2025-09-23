@@ -5,6 +5,7 @@ picamera2>=0.3.31; sys_platform == 'linux' and (platform_machine == 'arm64' or p
 chardet>=5.1.0
 wxpython>=4.2.3
 requests>=2.32.5
+pygame>=2.6.1
 
 # 打包工具依赖 (PyInstaller and its components)
 altgraph>=0.17.4
