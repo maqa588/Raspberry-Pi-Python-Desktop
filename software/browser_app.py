@@ -288,7 +288,7 @@ class BrowserFrame(wx.Frame):
         """显示一个包含系统信息的标准关于对话框。"""
         info = wx.adv.AboutDialogInfo()
         info.SetName("Maqa Browser on Pi Desktop")
-        info.SetVersion("1.0.0-rc1")
+        info.SetVersion("1.0.0.1")
         info.SetDescription("这是一个基于 wxPython 的简单浏览器实现")
         info.SetCopyright("(C) 2025 Spencer Maqa")
         wx.adv.AboutBox(info)

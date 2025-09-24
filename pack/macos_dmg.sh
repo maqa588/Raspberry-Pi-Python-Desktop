@@ -13,6 +13,7 @@ fi
 create-dmg \
   --volname "Raspberry Pi Desktop Installer" \
   --background "macos_background.png" \
+  --volicon "setup_logo.icns" \
   --window-pos 200 120 \
   --window-size 600 400 \
   --icon-size 100 \

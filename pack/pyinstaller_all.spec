@@ -1,5 +1,7 @@
 # -*- mode: python ; coding: utf-8 -*-
 
+# 定义版本号，可以在多处使用
+version_string = "1.0.0.1"
 
 a = Analysis(
     ['../app.py'],
@@ -16,6 +18,7 @@ a = Analysis(
 )
 pyz = PYZ(a.pure)
 
+# 对于 Windows/Linux 可执行文件 (EXE)
 exe = EXE(
     pyz,
     a.scripts,
@@ -32,8 +35,8 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    # 添加这行来指定 .exe 文件的图标
-    icon='setup_logo.ico', 
+    icon='setup_logo.ico',
+    version='versioninfo.txt',
 )
 coll = COLLECT(
     exe,
@@ -44,10 +47,16 @@ coll = COLLECT(
     upx_exclude=[],
     name='Raspberry Pi Desktop',
 )
+
+# 对于 macOS 应用 (BUNDLE)
 app = BUNDLE(
     coll,
     name='Raspberry Pi Desktop.app',
-    # 添加这行来指定 .app 文件的图标
-    icon='setup_logo.iconset',
+    icon='setup_logo.icns',
     bundle_identifier=None,
+    # 直接在这里指定版本号，非常方便
+    info_plist={
+        'CFBundleShortVersionString': version_string,
+        'CFBundleVersion': version_string,
+    }
 )
