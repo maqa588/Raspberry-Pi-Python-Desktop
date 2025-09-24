@@ -2,7 +2,7 @@
 ; SEE THE DOCUMENTATION FOR DETAILS ON CREATING INNO SETUP SCRIPT FILES!
 
 #define MyAppName "Raspberry Pi Desktop"
-#define MyAppVersion "0.1.4-alpha"
+#define MyAppVersion "1.0.0-rc1"
 #define MyAppPublisher "Spencer"
 #define MyAppURL "https://www.winddine.top/"
 #define MyAppExeName "RaspberryPiDesktop.exe"
@@ -37,6 +37,7 @@ OutputDir=C:\Raspberry-Pi-Python-Desktop\pack
 OutputBaseFilename=raspberry-pi-setup
 SolidCompression=yes
 WizardStyle=modern
+SetupIconFile=setup_logo.ico
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"
