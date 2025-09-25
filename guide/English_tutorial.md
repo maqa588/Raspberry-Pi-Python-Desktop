@@ -131,6 +131,32 @@ python app.py
 
 Now Linux packed executable file isn't provided temporarily. Only support compile from source code.
 
+Install python and tkinter(Debian):
+
+```bash
+sudo apt install python3 python3-venv python3-tk
+```
+
+Sync the project to your local folder:
+
+```bash
+git clone https://github.com/maqa588/Raspberry-Pi-Python-Desktop.git
+```
+
+create a virtual environment, and install dependencies:
+
+```bash
+python -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+```
+
+Run the program:
+
+```bash
+python app.py
+```
+
 You need to install these if you are running on Raspberry Pi-Like low performance SBC devices:
 ```bash
 sudo apt install libwebkit2gtk-4.1-dev libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev

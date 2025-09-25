@@ -132,6 +132,32 @@ python app.py
 
 目前暂时没有Linux打包的可执行文件，仅支持从源代码部署。
 
+安装python和tkinter(Debian):
+
+```bash
+sudo apt install python3 python3-venv python3-tk
+```
+
+将项目同步到你的本地文件夹：
+
+```bash
+git clone https://github.com/maqa588/Raspberry-Pi-Python-Desktop.git
+```
+
+创建虚拟环境并安装依赖：
+
+```bash
+python -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+```
+
+运行程序：
+
+```bash
+python app.py
+```
+
 如果你的Linux机能紧张，像我的树莓派一样，你需要安装
 ```bash
 sudo apt install libwebkit2gtk-4.1-dev libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev
