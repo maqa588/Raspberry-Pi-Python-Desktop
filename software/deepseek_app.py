@@ -136,7 +136,8 @@ class DeepSeekChatApp:
         if self.user_input.get("1.0", "end-1c") == "你的消息应该输入在这里...":
             self.user_input.delete("1.0", tk.END)
             self.user_input.tag_remove('placeholder', "1.0", tk.END)
-            self.user_input.config(foreground='black')
+            # 移除此行，让Tkinter使用系统默认文本颜色，以适应深色模式
+            # self.user_input.config(foreground='black')
 
     def on_user_input_focus_out(self, event):
         """当输入框失去焦点时，如果内容为空，则重新添加提示文本"""
@@ -317,6 +318,8 @@ class DeepSeekChatApp:
     def display_message(self, sender, message):
         """在聊天显示区添加消息"""
         self.chat_display.config(state=tk.NORMAL)
+        # 为发送者名称添加标签，以便可以自定义样式
+        self.chat_display.tag_configure("sender", font=("Helvetica", 10, "bold"))
         self.chat_display.insert(tk.END, f"{sender}:\n", "sender")
         self.chat_display.insert(tk.END, f"{message}\n\n")
         self.chat_display.see(tk.END)
