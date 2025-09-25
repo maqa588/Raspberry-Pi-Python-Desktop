@@ -2,7 +2,7 @@
 
 ### 前情提要
 
-根据我的测试，本项目暂时不支持 Windows On Arm 的编译与运行（主要原因是 Qt5 编译较为复杂），请在 **Windows X86 环境** 下运行。
+根据我的测试，本项目暂时不支持 Windows On Arm 的编译（主要原因是pygame），请在 **Windows X86 环境** 下编译。
 
 如果你的 PC 设备是 **aarch64 架构的 Linux 设备**，则必须引入 **picamera2** 库才能运行（也就是说，你的单板计算机需要支持 SPI 摄像头，这样才能实现与树莓派上运行相同的效果）。
 
@@ -14,7 +14,7 @@
 
 如果你想直接运行可执行文件，可以在项目页面的 **Releases** 中下载：
 
-![](release_list.webp)
+![](release_list.jpg)
 
 - macOS 用户下载 **dmg 格式文件**  
 - Windows 用户下载 **exe 格式文件**
@@ -28,6 +28,26 @@
 在 Windows 上，请访问 [Python 官网](https://www.python.org/downloads/windows/) 下载最新的 Python，并使用 **系统权限安装**。  
 
 你还需要安装 [Git for Windows](https://gitforwindows.org)。
+
+将项目同步到你的本地文件夹：
+
+```bash
+git clone https://github.com/maqa588/Raspberry-Pi-Python-Desktop.git
+```
+
+创建虚拟环境并安装依赖：
+
+```bash
+python -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+```
+
+运行程序：
+
+```bash
+python app.py
+```
 
 ---
 
@@ -109,6 +129,8 @@ python app.py
 ```
 
 ## Linux
+
+目前暂时没有Linux打包的可执行文件，仅支持从源代码部署。
 
 如果你的Linux机能紧张，像我的树莓派一样，你需要安装
 ```bash

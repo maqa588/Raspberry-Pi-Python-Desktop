@@ -2,7 +2,7 @@
 
 ### Preface
 
-Based on my testing, this project does **not** currently support compilation and execution on **Windows On Arm** (mainly because compiling Qt5 is quite complicated). Please run it under a **Windows X86 environment**.
+Based on my testing, this project does **not** currently support compilation on **Windows On Arm** (mainly because pygame). Please compile it under a **Windows X86 environment**.
 
 If your PC device is an **aarch64 Linux device**, you must include the **picamera2** library to run it (in other words, your SBC needs to support an SPI camera, so that your device can achieve the same effect as running on a Raspberry Pi).
 
@@ -14,7 +14,7 @@ If your PC device is an **non aarch64 Linux device**, Your UI interface and shor
 
 If you just want to run the executable file, you can download it from the project’s **Releases** page:
 
-![](release_list.webp)
+![](release_list.jpg)
 
 - macOS users: download the **.dmg** file  
 - Windows users: download the **.exe** file  
@@ -28,6 +28,26 @@ If you just want to run the executable file, you can download it from the projec
 On Windows, visit the [official Python website](https://www.python.org/downloads/windows/) to download the latest version of Python, and install it with **administrator privileges**.  
 
 You also need to install [Git for Windows](https://gitforwindows.org).
+
+Finally, sync the project to your local folder:
+
+```bash
+git clone https://github.com/maqa588/Raspberry-Pi-Python-Desktop.git
+```
+
+create a virtual environment, and install dependencies:
+
+```bash
+python -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+```
+
+Run the program:
+
+```bash
+python app.py
+```
 
 ---
 
@@ -106,4 +126,19 @@ Run the program:
 
 ```bash
 python app.py
+```
+## Linux
+
+Now Linux packed executable file isn't provided temporarily. Only support compile from source code.
+
+You need to install these if you are running on Raspberry Pi-Like low performance SBC devices:
+```bash
+sudo apt install libwebkit2gtk-4.1-dev libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev
+sudo apt install python3-wxgtk4.0 python3-wxgtk-media4.0 python3-wxgtk-webview4.0
+sudo apt install python3-tk python3-pygame python3-requests python3-pil python3-chardet python3-psutil python3-pyinstaller python3-platformdirs python3-pil.imagetk
+```
+
+Only support Raspberry Pi:
+```bash
+sudo apt install python3-picamera2
 ```
