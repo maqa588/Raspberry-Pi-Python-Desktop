@@ -1,5 +1,7 @@
 # Raspberry-Pi-Python-Desktop
 
+![MacOS Preview](guide/desktop_preview.jpg)
+
 *[English Tutorial](guide/English_tutorial.md)
 
 An easy GUI Desktop running on Raspberry Pi zero 2w X11 using Python
