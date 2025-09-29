@@ -29,14 +29,13 @@ except ImportError:
     print("警告: 未能导入 system.button.about，使用占位函数。")
 
 # --- YOLO 配置和工具 ---
-# *** 修复：将模型替换为与旧版 OpenCV 兼容的 YOLOv5s.onnx ***
-YOLO_MODEL_PATH = os.path.join(current_dir, "models", "yolov5s.onnx") # <--- 路径已更改
+# 沿用 YOLOv5s 模型，因为它与旧版 OpenCV 兼容
+YOLO_MODEL_PATH = os.path.join(current_dir, "models", "yolov5s.onnx") 
 CLASS_NAMES_PATH = os.path.join(current_dir, "models", "coco.names")
 
 CONFIDENCE_THRESHOLD = 0.5
 NMS_THRESHOLD = 0.4
-INPUT_SIZE = (640, 640) # YOLOv5s 模型的标准输入尺寸通常是 640x640，保持兼容性
-# 警告：如果您使用 YOLOv5s.onnx，建议将 INPUT_SIZE 改为 (640, 640) 以获得最佳效果。
+INPUT_SIZE = (640, 640) # YOLOv5s 标准输入
 
 # --- 相机应用主类 (CV2 版本) ---
 class CameraApp:
@@ -46,18 +45,17 @@ class CameraApp:
         self.master.geometry("480x320")
         self.master.resizable(False, False)
 
-        # 初始化 CV2 摄像头
-        # 在 Pi 上，index=0 通常是 CSI 或 USB 摄像头
-        self.cap = cv2.VideoCapture(0) 
+        # 初始化 CV2 摄像头 (增强鲁棒性)
+        self.cap = None
+        self._initialize_camera() # 调用新的初始化函数
         
-        # 检查摄像头是否打开
-        if not self.cap.isOpened():
-            # 尝试使用 libcamera 后端，这在较新的 Pi OS 上可能需要
-            self.cap = cv2.VideoCapture(0, cv2.CAP_V4L2)
-            if not self.cap.isOpened():
-                messagebox.showerror("相机错误", "无法访问本机摄像头。请确保摄像头已连接且未被占用。")
-                self.master.destroy()
-                return
+        # 检查摄像头是否成功打开
+        if not self.cap or not self.cap.isOpened():
+            messagebox.showerror("相机错误", "无法访问本机摄像头。请确保摄像头已连接、启用且未被占用。")
+            # 尝试销毁窗口时，如果 self.cap 存在则释放它
+            if self.cap: self.cap.release()
+            self.master.destroy()
+            return
 
         # 尝试设置分辨率
         self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
@@ -78,16 +76,38 @@ class CameraApp:
         self.init_ui()
         self.update_preview()
 
+    def _initialize_camera(self):
+        """尝试以多种方式初始化摄像头，以解决 GStreamer 错误。"""
+        # 1. 默认尝试 (可能使用 GStreamer，您遇到的问题)
+        print("尝试使用默认后端 (Index 0)...")
+        self.cap = cv2.VideoCapture(0)
+        
+        # 2. 如果默认失败，强制使用 V4L2 (推荐用于树莓派)
+        if not self.cap.isOpened():
+            print("默认后端失败，尝试强制使用 V4L2 后端 (Index 0)...")
+            # 释放第一次尝试
+            self.cap.release()
+            self.cap = cv2.VideoCapture(0, cv2.CAP_V4L2)
+            
+        # 3. 如果 V4L2 仍失败，尝试使用 libcamera 后端 (如果您的系统支持)
+        if not self.cap.isOpened():
+            print("V4L2 后端失败，尝试使用 LIPCAMEARA 后端 (Index 0)...")
+            self.cap.release()
+            # 注意: cv2.CAP_LIBCAMERA 需要 OpenCV 编译时支持 libcamera，但值得一试
+            self.cap = cv2.VideoCapture(0, cv2.CAP_LIBCAMERA)
+        
+        # 4. 如果所有尝试都失败，返回 None
+        if not self.cap.isOpened():
+            print("所有摄像头初始化尝试均失败。")
+            self.cap = None
+
     def _load_yolo_model(self):
         """加载 YOLO 模型和类别名称"""
         try:
             with open(CLASS_NAMES_PATH, 'r', encoding='utf-8') as f:
                 self.classes = [line.strip() for line in f.readlines()]
             
-            # 使用 DNN 读取 ONNX 模型
             self.net = cv2.dnn.readNet(YOLO_MODEL_PATH)
-            
-            # 在树莓派上，建议使用 CPU 作为目标
             self.net.setPreferableBackend(cv2.dnn.DNN_BACKEND_OPENCV)
             self.net.setPreferableTarget(cv2.dnn.DNN_TARGET_CPU)
             print(f"YOLOv5 Model loaded from: {YOLO_MODEL_PATH}")
@@ -150,12 +170,6 @@ class CameraApp:
     def detect_objects(self, frame):
         """
         在给定的图像帧上运行 YOLOv5 推理并绘制结果。
-        
-        Args:
-            frame (np.array): 包含图像数据的 NumPy 数组 (RGB).
-        
-        Returns:
-            np.array: 带有边界框和标签的图像 (BGR).
         """
         if not self.net:
             return cv2.cvtColor(frame, cv2.COLOR_RGB2BGR) 
@@ -164,13 +178,10 @@ class CameraApp:
         height, width, _ = img.shape
         
         # 1. 创建 Blob
-        # 使用配置的 INPUT_SIZE
         blob = cv2.dnn.blobFromImage(img, 1/255.0, INPUT_SIZE, swapRB=True, crop=False) 
         
         # 2. 运行推理
         self.net.setInput(blob)
-        
-        # 获取输出层名称
         output_layers_names = self.net.getUnconnectedOutLayersNames()
         outputs = self.net.forward(output_layers_names)
         
@@ -179,18 +190,11 @@ class CameraApp:
         confidences = []
         class_ids = []
         
-        # YOLOv5/v8 ONNX 导出的输出格式通常是 (1, num_detections, 5 + num_classes)
-        # 感谢 YOLOv5 的输出结构，解析过程与您原有的逻辑兼容
         for output in outputs:
             for detection in output:
-                # detection: [center_x, center_y, width, height, object_confidence, class_1_score, ...]
-                # 注意: YOLOv5s 的 ONNX 输出可能将目标置信度和类别分数分开 (5 + 80 = 85 维度)
-                
-                # 假设格式为 [cx, cy, w, h, obj_conf, class_scores...]
+                # 结合目标置信度和类别分数
                 scores = detection[5:] 
                 class_id = np.argmax(scores)
-                
-                # 结合目标置信度和类别分数
                 confidence = detection[4] * scores[class_id]
                 
                 if confidence > CONFIDENCE_THRESHOLD:
@@ -199,7 +203,6 @@ class CameraApp:
                     w = int(detection[2] * width)
                     h = int(detection[3] * height)
                     
-                    # 计算左上角坐标
                     x = int(center_x - w / 2)
                     y = int(center_y - h / 2)
                     
@@ -230,6 +233,11 @@ class CameraApp:
         """
         捕获 CV2 帧，进行目标检测，并在预览标签中显示。
         """
+        if not self.cap:
+             # 如果 cap 为 None，不再尝试读取帧
+             self.master.after(1000, self.confirm_exit)
+             return
+             
         # FPS 计时
         current_time = time.time()
         fps = 1.0 / (current_time - self.last_time) if (current_time - self.last_time) > 0 else 0
@@ -239,6 +247,7 @@ class CameraApp:
         ret, frame_bgr = self.cap.read()
         
         if not ret:
+            # 无法读取帧，停止循环并通知用户
             if self.after_id:
                 self.master.after_cancel(self.after_id)
             messagebox.showerror("错误", "无法读取摄像头帧，即将退出。")
@@ -274,6 +283,10 @@ class CameraApp:
         """
         拍摄照片，运行检测并保存带识别框的图像。
         """
+        if not self.cap:
+            messagebox.showerror("拍照失败", "摄像头未成功初始化。")
+            return
+            
         if not os.path.exists("photos"):
             os.makedirs("photos")
         
@@ -304,10 +317,9 @@ class CameraApp:
     def confirm_exit(self):
         """释放摄像头并退出应用。"""
         if messagebox.askyesno("退出", "你真的要退出吗？"):
-            if self.cap.isOpened():
+            if self.cap and self.cap.isOpened():
                 self.cap.release()
             
-            # 取消 tk.after 循环
             if self.after_id:
                 self.master.after_cancel(self.after_id)
                 
