@@ -10,102 +10,89 @@ import time
 import platform
 import threading
 import queue
+from platformdirs import user_pictures_dir
 
 # --- 导入 ultralytics 库 ---
 try:
-    # 尝试导入 PyTorch，确保 PyTorch 已正确安装且支持 MPS
-    import torch
-    if platform.system() == "Darwin" and not torch.backends.mps.is_available():
-        # 如果是 macOS 但 MPS 不可用，将退回到 CPU，但需要通知用户
-        print("警告：PyTorch 的 MPS 后端不可用，将使用 CPU 进行推理。")
-        DEFAULT_DEVICE = 'cpu'
-    elif platform.system() == "Darwin":
-        DEFAULT_DEVICE = 'mps'
-    else:
-        DEFAULT_DEVICE = 'cpu' # 非 macOS 系统默认为 CPU
-
     from ultralytics import YOLO
+    # 假设 NCNN 格式模型导出后位于此文件夹
+    NCNN_MODEL_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "models", "yolo11n_ncnn_model")
+    
+    # 关键设置: 使用 'cpu' 避免 CUDA 索引错误，并允许 NCNN 自动选择 Metal 加速。
+    DEFAULT_DEVICE = 'cpu' 
+    ACCEL_NAME = 'NCNN Native (Metal/CPU Fallback)'
+
 except ImportError:
     messagebox.showerror("依赖缺失", "请先安装 ultralytics 库: pip install ultralytics")
     class YOLO:
         def __init__(self, *args, **kwargs):
             raise ImportError("ultralytics not found")
-    DEFAULT_DEVICE = 'cpu' # 如果 ultralytics 都没装，给一个默认值
+    NCNN_MODEL_DIR = ""
+    DEFAULT_DEVICE = 'cpu'
+    ACCEL_NAME = 'CPU'
 
 # --- 常量定义 ---
-
-APP_ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
-# *** 更改模型路径为 PyTorch 模型 (.pt) ***
-# 请确保您的 'models' 目录下有 yolov8n.pt 或其他 .pt 模型
-COREML_MODEL_PATH = os.path.join(APP_ROOT_DIR, "models", "yolo11n.pt") 
-
 CONFIDENCE_THRESHOLD = 0.4 
 NMS_THRESHOLD = 0.4        
 CAMERA_WIDTH = 1280
-CAMERA_HEIGHT = 720 # 摄像头实际捕获尺寸
-
-# 推理目标 FPS
+CAMERA_HEIGHT = 720
 TARGET_CAP_FPS = 30
-FRAME_TIME_MS = 1000 / TARGET_CAP_FPS # 约 33.33ms
-
-# 模型推理尺寸
+FRAME_TIME_MS = 1000 / TARGET_CAP_FPS
 MODEL_INFERENCE_SIZE = 640
-PREDICT_IMG_SIZE = (MODEL_INFERENCE_SIZE, MODEL_INFERENCE_SIZE) # (640, 640) HxW
+PREDICT_IMG_SIZE = (MODEL_INFERENCE_SIZE, MODEL_INFERENCE_SIZE)
 
-# --- 线程安全队列 ---
+# 初始窗口大小设置
+INITIAL_WINDOW_WIDTH = 1000
+INITIAL_WINDOW_HEIGHT = 600
+
+# 定义照片保存的根目录
+PHOTO_SAVE_DIR = os.path.join(user_pictures_dir(), "YOLO NCNN Photos")
+print(f"照片将保存到: {PHOTO_SAVE_DIR}")
+
 processed_frame_queue = queue.Queue(maxsize=1) 
 stats_queue = queue.Queue(maxsize=1) 
 
 # --- 后台工作线程类 ---
 class CameraWorker(threading.Thread):
-    def __init__(self, model_path, classes):
+    def __init__(self, model_dir, device_name):
         super().__init__()
         self.cap = None
         self.running = True
         self.net = None
-        self.classes = classes
-        self.model_path = model_path
+        self.model_dir = model_dir
+        self.device = device_name
         self.frame_count = 0
-        # 保持 4 帧检测一次，以保证预览流畅度
+        # 每隔 4 帧进行一次检测，保证预览流畅
         self.detection_interval = 4 
-        
-        # *** 设置推理设备为 MPS ***
-        self.device = DEFAULT_DEVICE
-        
+        self.classes = {}
+
     def _initialize_camera(self):
-        """尝试初始化摄像头并设置 30 FPS"""
+        """初始化摄像头"""
         self.cap = cv2.VideoCapture(0)
         if self.cap.isOpened():
             self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, CAMERA_WIDTH) 
             self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, CAMERA_HEIGHT)
-            
-            # 明确设置 30 FPS 限制
             self.cap.set(cv2.CAP_PROP_FPS, TARGET_CAP_FPS) 
-            
-            actual_w = self.cap.get(cv2.CAP_PROP_FRAME_WIDTH)
-            actual_h = self.cap.get(cv2.CAP_PROP_FRAME_HEIGHT)
-            actual_fps = self.cap.get(cv2.CAP_PROP_FPS)
-            print(f"相机工作线程启动，分辨率: {actual_w}x{actual_h}, 目标 FPS: {actual_fps}")
+            print(f"相机工作线程启动，目标 FPS: {self.cap.get(cv2.CAP_PROP_FPS)}")
             return True
         return False
 
     def _load_yolo_model(self):
-        """加载 PyTorch 模型并指定 MPS 设备"""
-        if not os.path.exists(self.model_path):
-             print(f"后台工作线程: 错误！模型文件不存在于: {self.model_path}")
-             print("请确认已下载 PyTorch 模型文件（例如 yolov8n.pt）并放置在 'models/' 目录下。")
+        """加载 YOLO NCNN 模型"""
+        if not os.path.exists(self.model_dir):
+             print(f"后台工作线程: 错误！NCNN 模型目录不存在于: {self.model_dir}")
+             print("请先运行 model.export(format=\"ncnn\") 生成此目录。")
              return False
 
         try:
-            # 加载 PyTorch 模型，ultralytics 会自动处理
-            self.net = YOLO(self.model_path) 
-            print(f"🎉 后台工作线程: YOLO 模型 ({os.path.basename(self.model_path)}) 加载成功。")
-            print(f"🎉 后台工作线程: 推理设备已设置为 '{self.device}'。")
-            # 预热模型 (第一次推理会比较慢)
-            # self.net.predict(source=np.zeros((1, 640, 640, 3), dtype=np.uint8), device=self.device, verbose=False)
+            self.net = YOLO(self.model_dir) 
+            self.classes = self.net.names
+            print(f"🎉 后台工作线程: YOLO NCNN 模型加载成功。")
+            print(f"🎉 后台工作线程: 推理设备已设置为 '{ACCEL_NAME}' (请求 device='{self.device}')。")
+            print("注意: NCNN 运行时会忽略 'cpu' 请求，如果编译支持，将自动使用 Metal/GPU 加速。")
             return True
         except Exception as e:
-            print(f"❌ PyTorch 模型加载失败: {e}")
+            print(f"❌ NCNN 模型加载失败: {e}")
             return False
 
     def detect_objects(self, img_bgr):
@@ -115,7 +102,7 @@ class CameraWorker(threading.Thread):
 
         start_detection = time.time()
         try:
-            # *** 明确指定 device 为 self.device ('mps' 或 'cpu') ***
+            # 使用 'cpu' 避免 CUDA 错误
             results = self.net.predict(
                 source=img_bgr, 
                 conf=CONFIDENCE_THRESHOLD, 
@@ -125,8 +112,7 @@ class CameraWorker(threading.Thread):
                 device=self.device, 
             )
         except Exception as e:
-            # 这里的错误通常是 PyTorch 或 MPS 运行时的错误
-            print(f"PyTorch/MPS 推理错误: {e}")
+            print(f"NCNN 推理错误: {e}") 
             return img_bgr, 0.0
 
         detection_time = time.time() - start_detection
@@ -138,8 +124,7 @@ class CameraWorker(threading.Thread):
         # 绘制结果
         res = results[0]
         for box in res.boxes:
-            # 注意: MPS 设备上的张量需要先移动到 CPU 再转换为列表
-            x1, y1, x2, y2 = map(int, box.xyxy[0].cpu().int().tolist())
+            x1, y1, x2, y2 = map(int, box.xyxy[0].int().tolist())
             conf = box.conf[0].item()                      
             cls = int(box.cls[0].item())                   
             
@@ -156,11 +141,7 @@ class CameraWorker(threading.Thread):
 
     def run(self):
         """线程主循环"""
-        if not self._initialize_camera():
-            self.running = False
-            return
-            
-        if not self._load_yolo_model():
+        if not self._initialize_camera() or not self._load_yolo_model():
             self.running = False
             if self.cap: self.cap.release()
             return
@@ -168,46 +149,32 @@ class CameraWorker(threading.Thread):
         last_frame_time = time.time()
         last_detected_frame = None
         detection_time = 0.0
-        
-        # 记录每秒帧率 (Cap FPS)
         fps_start_time = time.time()
         cap_frame_count = 0
 
         while self.running:
-            
-            # **帧率限制**: 强制 30 FPS 延迟
-            # 计算需要等待的时间（毫秒转换为秒）
             current_time = time.time()
             elapsed_time = current_time - last_frame_time
             sleep_time = (FRAME_TIME_MS / 1000) - elapsed_time
-            if sleep_time > 0:
-                 time.sleep(sleep_time)
-            
-            # 更新时间戳
+            if sleep_time > 0: time.sleep(sleep_time)
             last_frame_time = time.time()
 
             ret, current_frame_bgr = self.cap.read()
-            if not ret:
-                continue
+            if not ret: continue
 
-            # 真实的相机捕获 FPS 统计
             cap_frame_count += 1
             if current_time - fps_start_time >= 1.0:
-                 # 使用上次的 current_time 作为分母的起点，确保时间准确性
                  cap_fps = cap_frame_count / (current_time - fps_start_time) 
-                 # 队列更新统计数据
                  if stats_queue.full():
                     try: stats_queue.get_nowait()
                     except queue.Empty: pass
+                 # 后台线程只在每秒结束时推送一次统计数据
                  stats_queue.put((cap_fps, detection_time))
-                 
                  fps_start_time = current_time
                  cap_frame_count = 0
             
-            # 使用上次检测到的帧作为当前显示帧的基准
             display_frame_bgr = current_frame_bgr.copy()
 
-            # --- 性能分流逻辑 (只在工作线程执行检测) ---
             if self.frame_count >= self.detection_interval:
                 processed_frame, detection_time = self.detect_objects(current_frame_bgr)
                 last_detected_frame = processed_frame
@@ -218,17 +185,12 @@ class CameraWorker(threading.Thread):
             
             self.frame_count += 1
 
-            # --- 更新帧队列：将处理好的帧传回主线程 ---
             if processed_frame_queue.full():
                 try: processed_frame_queue.get_nowait()
                 except queue.Empty: pass
             processed_frame_queue.put(display_frame_bgr)
 
-
-        # --- 退出清理 ---
-        if self.cap:
-            self.cap.release()
-        print("后台工作线程已退出。")
+        if self.cap: self.cap.release()
 
     def stop(self):
         self.running = False
@@ -238,39 +200,29 @@ class CameraWorker(threading.Thread):
 class App:
     def __init__(self, master):
         self.master = master
-        
-        # 此应用主要用于 macOS 上的 MPS 加速
         if platform.system() != "Darwin":
-             msg = "错误：此版本专为 macOS (PyTorch + MPS) 设计。"
-             messagebox.showerror("配置错误", msg)
+             messagebox.showerror("配置错误", "此版本专为 macOS 设计。")
              self.master.destroy()
              return
 
-        # 1. 检查模型路径并在 UI 线程提前加载模型获取类别信息
+        # 1. 设置窗口初始大小 
+        self.master.geometry(f"{INITIAL_WINDOW_WIDTH}x{INITIAL_WINDOW_HEIGHT}")
+        
+        # 2. 初始化模型和 UI
+        self.classes = {}
         try:
-            if not os.path.exists(COREML_MODEL_PATH):
-                 raise FileNotFoundError(f"模型文件不存在。请确认路径: {COREML_MODEL_PATH}")
-
-            # 仅加载模型以获取类别信息 (names)
-            temp_model = YOLO(COREML_MODEL_PATH)
+            temp_model = YOLO(NCNN_MODEL_DIR)
             self.classes = temp_model.names
+            self.device_info = ACCEL_NAME
             del temp_model
         except Exception as e:
-            messagebox.showerror("模型加载失败", f"无法加载模型获取类别信息或路径错误: {e}")
+            messagebox.showerror("模型加载失败", f"请确认已导出 NCNN 模型到 '{NCNN_MODEL_DIR}'。错误: {e}")
             self.master.destroy()
             return
             
-        # 更新应用标题以反映 MPS 模式
-        self.master.title("macOS 高性能摄像头应用 (线程化 PyTorch + MPS) - 1280x720p")
+        self.master.title(f"macOS 高性能摄像头应用 (线程化 NCNN - {ACCEL_NAME}) - 1280x720p")
         
-        CONTROL_PANEL_WIDTH = 200
-        self.MASTER_WIDTH = CAMERA_WIDTH + CONTROL_PANEL_WIDTH + 20
-        self.MASTER_HEIGHT = CAMERA_HEIGHT + 20
-        self.master.geometry(f"{self.MASTER_WIDTH}x{self.MASTER_HEIGHT}")
-        self.master.resizable(True, True) 
-
-        # 2. 启动工作线程
-        self.worker = CameraWorker(COREML_MODEL_PATH, self.classes)
+        self.worker = CameraWorker(NCNN_MODEL_DIR, DEFAULT_DEVICE)
         self.worker.daemon = True 
         self.worker.start()
         
@@ -281,160 +233,222 @@ class App:
 
         self.after_id = None
         self.photo = None 
+        self.canvas_image = None 
+        
+        # 🆕 新增：状态变量，用于存储上一次成功的 FPS 和推理时间，防止 UI 闪烁。
+        self.current_cap_fps = 0.0
+        self.current_detection_time = 0.0
+        
         self.init_ui()
+        
+        # 3. 强制在 UI 渲染后调用一次 resize 
+        self.master.after(100, self._initial_resize_and_centering)
+        
         self.master.protocol("WM_DELETE_WINDOW", self.confirm_exit)
-
-        # 3. 启动 Tkinter 的 UI 更新循环
         self.update_preview()
 
-
     def init_ui(self):
-        """初始化 Tkinter 界面"""
+        """初始化 Tkinter 界面，并设置 16:9 比例锁定"""
         main_frame = tk.Frame(self.master, bg="#2c3e50", padx=10, pady=10)
         main_frame.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
 
-        # 2. 右侧：按钮区域 (宽度固定)
         RIGHT_FRAME_WIDTH = 200 
         right_frame = tk.Frame(main_frame, bg="#34495e", padx=10, pady=10, width=RIGHT_FRAME_WIDTH)
         right_frame.pack(side=tk.RIGHT, fill=tk.Y, padx=(10, 0)) 
         right_frame.pack_propagate(False) 
 
-        tk.Label(right_frame, text="操作面板 (线程化)", bg="#34495e", fg="#ecf0f1", font=('Arial', 12, 'bold')).pack(pady=10)
+        tk.Label(right_frame, text="操作面板 (NCNN)", bg="#34495e", fg="#ecf0f1", font=('Arial', 12, 'bold')).pack(pady=10)
 
-        base_button_style = {
-            'width': 18, 'height': 2, 'fg': 'white', 'activeforeground': 'white',
-            'font': ('Arial', 10, 'bold'), 'bd': 0, 'relief': tk.FLAT
-        }
+        base_button_style = {'width': 18, 'height': 2, 'fg': 'white', 'activeforeground': 'white',
+                             'font': ('Arial', 10, 'bold'), 'bd': 0, 'relief': tk.FLAT}
 
         btn_photo = tk.Button(right_frame, text="拍照 (1280x720)", command=self.take_photo, 
                               bg='#3498db', activebackground='#2980b9', **base_button_style)
         btn_photo.pack(pady=10)
         
-        # 显示模型推理的 WxH 尺寸
         tk.Label(right_frame, text=f"分辨率 (Cam): {CAMERA_WIDTH}x{CAMERA_HEIGHT}", bg="#34495e", fg="#bdc3c7", font=('Arial', 10)).pack(pady=(20, 5))
-        tk.Label(right_frame, text=f"模型输入 H x W: {PREDICT_IMG_SIZE[0]}x{PREDICT_IMG_SIZE[1]} (PyTorch)", bg="#34495e", fg="#bdc3c7", font=('Arial', 10)).pack(pady=5)
-        # *** 更新加速文本以反映 MPS 模式 ***
-        tk.Label(right_frame, text=f"加速: PyTorch ({self.worker.device.upper()})", bg="#34495e", fg="#bdc3c7", font=('Arial', 10)).pack(pady=5)
+        tk.Label(right_frame, text=f"模型输入 H x W: {PREDICT_IMG_SIZE[0]}x{PREDICT_IMG_SIZE[1]} (NCNN)", bg="#34495e", fg="#bdc3c7", font=('Arial', 10)).pack(pady=5)
+        tk.Label(right_frame, text=f"加速: {self.device_info}", bg="#34495e", fg="#bdc3c7", font=('Arial', 10, 'bold')).pack(pady=5)
         
         btn_exit = tk.Button(right_frame, text="退出应用", command=self.confirm_exit, 
                              bg='#e74c3c', activebackground='#c0392b', **base_button_style)
         btn_exit.pack(pady=(40, 10))
 
-
-        # 3. 左侧：视频预览区域
-        left_frame = tk.Frame(main_frame, bg='black', bd=2, relief=tk.SUNKEN, 
-                              width=CAMERA_WIDTH, height=CAMERA_HEIGHT)
-        left_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True) 
-
-        self.preview_label = tk.Label(left_frame, bg='black')
-        self.preview_label.pack(fill=tk.BOTH, expand=True)
+        # ------------------------------------------------------------------
+        # 锁定 16:9 比例的 Frame (容器)
+        # ------------------------------------------------------------------
+        self.aspect_frame = tk.Frame(main_frame, bg='black', bd=2, relief=tk.SUNKEN)
+        self.aspect_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         
-        self.fps_label = tk.Label(left_frame, text="相机 FPS: 0.0 | 推理: 0.0ms", fg="#ecf0f1", bg="black", font=('Arial', 10, 'bold'))
+        # Grid Setup for Centering：配置 aspect_frame 内部的 Grid 布局
+        self.aspect_frame.grid_rowconfigure(0, weight=1)
+        self.aspect_frame.grid_columnconfigure(0, weight=1)
+
+        # 绑定尺寸变化事件
+        self.aspect_frame.bind('<Configure>', self._on_frame_resize)
+
+        # 创建 Canvas (画布)
+        self.preview_canvas = tk.Canvas(self.aspect_frame, bg='black', highlightthickness=0)
+        self.preview_canvas.grid(row=0, column=0) 
+        
+        self.fps_label = tk.Label(self.aspect_frame, text="相机 FPS: 0.0 | 推理: 0.0ms", fg="#ecf0f1", bg="black", font=('Arial', 10, 'bold'))
+        # FPS Label 使用 place 浮动在 Canvas 上方
         self.fps_label.place(relx=0.01, rely=0.01, anchor="nw")
         
         self.master.update_idletasks()
 
+    def _on_frame_resize(self, event):
+        """
+        当 aspect_frame 尺寸改变时调用。
+        使用 Grid 居中机制，并严格约束 Canvas 的尺寸为 16:9。
+        """
+        w = event.width  # aspect_frame 容器宽度
+        h = event.height # aspect_frame 容器高度
+        
+        target_aspect_ratio = 16.0 / 9.0
+
+        # 1. 尝试将宽度设置为容器宽度，计算对应的高度 (宽度优先)
+        max_w_for_h = int(h * target_aspect_ratio)
+        max_h_for_w = int(w / target_aspect_ratio) 
+
+        new_w = w
+        new_h = max_h_for_w
+        
+        # 2. 如果宽度优先计算出的高度超过了容器的高度，则以高度为限制 (确保整个画面可见)
+        if new_h > h:
+            new_h = h
+            new_w = max_w_for_h
+
+        # 最小尺寸限制
+        if new_w < 100 or new_h < 50:
+            return
+
+        # 关键：更新 Canvas 的 width 和 height 配置。
+        # Grid 机制会自动将这个固定尺寸的 Canvas 居中到 aspect_frame 的中心。
+        self.preview_canvas.config(width=new_w, height=new_h)
+
+
+    def _initial_resize_and_centering(self):
+        """
+        用于解决窗口刚打开时 Canvas 未能正确居中和调整大小的问题。
+        """
+        self.master.update_idletasks()
+        
+        w = self.aspect_frame.winfo_width()
+        h = self.aspect_frame.winfo_height()
+        
+        class MockEvent:
+            def __init__(self, w, h):
+                self.width = w
+                self.height = h
+
+        if w > 10 and h > 10:
+            mock_event = MockEvent(w, h)
+            self._on_frame_resize(mock_event)
+
 
     def update_preview(self):
-        """
-        [主线程] 从队列中读取已处理的帧和性能数据并更新 UI。
-        """
+        """[主线程] 从队列中读取已处理的帧和性能数据并更新 UI。"""
         try:
-            # 1. 从队列获取帧 (非阻塞)
             display_frame_bgr = processed_frame_queue.get_nowait()
             
-            # 2. 从队列获取统计数据 (非阻塞)
-            cap_fps = 0.0
-            detection_time = 0.0
-            try:
-                cap_fps, detection_time = stats_queue.get_nowait()
-            except queue.Empty:
-                pass # 如果统计数据没更新，保持上次的值
+            # 🆕 关键修改：尝试获取新数据，如果成功则更新状态变量
+            try: 
+                new_cap_fps, new_detection_time = stats_queue.get_nowait()
+                self.current_cap_fps = new_cap_fps
+                self.current_detection_time = new_detection_time
+            except queue.Empty: 
+                # 如果队列为空，则保持使用上一次的值（不会归零）
+                pass 
 
-            # 3. 更新统计标签
-            self.fps_label.config(text=f"相机 FPS: {cap_fps:.1f} (目标 {TARGET_CAP_FPS}) | 推理: {detection_time*1000:.1f}ms (每{self.worker.detection_interval}帧)")
+            # 使用状态变量更新 UI，而不是使用 try-except 块内的局部变量
+            self.fps_label.config(
+                text=f"相机 FPS: {self.current_cap_fps:.1f} (目标 {TARGET_CAP_FPS}) | 推理: {self.current_detection_time*1000:.1f}ms (每{self.worker.detection_interval}帧)"
+            )
             
-            # 4. 图像转换和显示
             detected_frame_rgb = cv2.cvtColor(display_frame_bgr, cv2.COLOR_BGR2RGB)
             
-            preview_width = self.preview_label.winfo_width()
-            preview_height = self.preview_label.winfo_height()
+            # 获取当前 Canvas 的实际尺寸 (由 _on_frame_resize 决定)
+            preview_width = self.preview_canvas.winfo_width()
+            preview_height = self.preview_canvas.winfo_height()
 
             if preview_width > 0 and preview_height > 0:
                 image = Image.fromarray(detected_frame_rgb)
                 
-                if preview_width != CAMERA_WIDTH or preview_height != CAMERA_HEIGHT:
-                    image = image.resize((preview_width, preview_height), Image.Resampling.LANCZOS)
+                # 图像缩放至 Canvas 的尺寸
+                image = image.resize((preview_width, preview_height), Image.Resampling.LANCZOS)
                 
                 self.photo = ImageTk.PhotoImage(image)
-                self.preview_label.config(image=self.photo)
+
+                # 使用 Canvas 绘制图像
+                self.preview_canvas.delete("all") # 清除上一次绘制的图像
+                # 将图像中心点精确放置在 Canvas 的中心 (preview_width/2, preview_height/2)
+                self.canvas_image = self.preview_canvas.create_image(
+                    preview_width // 2, 
+                    preview_height // 2, 
+                    image=self.photo, 
+                    anchor=tk.CENTER # 确保图像的锚点是中心
+                )
             
         except queue.Empty:
-            pass # 队列为空是正常的，表示工作线程还没产生新帧
+            pass 
         except Exception as e:
             print(f"UI 更新错误: {e}")
             
-        # 5. 调度下一次更新，间隔时间设置得极短 (1ms)
         self.after_id = self.master.after(1, self.update_preview)
 
     def take_photo(self):
-        """[主线程] 拍照操作：从队列中获取最新的带框帧并保存。"""
+        """[主线程] 拍照操作：从队列中获取最新的带框帧并保存到系统照片目录。"""
         if not self.worker.is_alive():
              messagebox.showerror("拍照失败", "工作线程未运行。")
              return
              
-        if not os.path.exists("photos"):
-            os.makedirs("photos")
+        if not os.path.exists(PHOTO_SAVE_DIR): os.makedirs(PHOTO_SAVE_DIR)
 
-        # 尝试从队列中获取最新的已处理帧
         frame_bgr = None
         try:
-            # 清空队列，确保拿到最新的那一帧
+            # 等待 100ms 以确保从工作线程获取到至少一帧数据
+            frame_bgr = processed_frame_queue.get(timeout=0.1)
+            
+            # 确保我们拿到的是最新的那一帧，清空队列中可能存在的旧帧
             while not processed_frame_queue.empty():
-                 frame_bgr = processed_frame_queue.get_nowait()
-        except queue.Empty:
-             pass
+                frame_bgr = processed_frame_queue.get_nowait()
+                
+        except queue.Empty: 
+            frame_bgr = None # 如果等待 100ms 仍然为空，则失败
              
         if frame_bgr is None:
              messagebox.showerror("拍照失败", "未获取到有效的帧数据，请等待视频流启动。")
              return
 
-        fname = datetime.datetime.now().strftime("%Y%m%d-%H%M%S") + "_yolo_mps_threaded.jpg"
-        path = os.path.join("photos", fname)
+        fname = datetime.datetime.now().strftime("%Y%m%d-%H%M%S") + "_yolo_ncnn_macos.jpg"
+        path = os.path.join(PHOTO_SAVE_DIR, fname)
+        try:
+            cv2.imwrite(path, frame_bgr)
+            messagebox.showinfo("照片已保存", f"带识别框的照片已保存到:\n{path}")
+        except Exception as e:
+            messagebox.showerror("保存失败", f"无法保存照片到 {path}。错误: {e}")
 
-        cv2.imwrite(path, frame_bgr)
-        messagebox.showinfo("照片已保存", f"带识别框的 1280x720 照片已保存为: {path}")
 
     def confirm_exit(self):
         """停止线程并退出应用。"""
         if messagebox.askyesno("退出", "你真的要退出吗？"):
-            # 1. 停止工作线程
             if self.worker.is_alive():
                 self.worker.stop()
-                self.worker.join(timeout=2) # 等待线程安全退出
-
-            # 2. 停止主线程循环
+                self.worker.join(timeout=2)
             if self.after_id:
                 self.master.after_cancel(self.after_id)
-                
             self.master.destroy()
 
 if __name__ == "__main__":
     try:
-        # 强制检查平台，MPS 仅在 macOS 上可用
-        if platform.system() != "Darwin":
-             msg = "错误：此高性能版本专为 macOS (PyTorch + MPS) 设计。"
-             messagebox.showerror("配置错误", msg)
-             sys.exit(1)
-             
-        # 避免 Tkinter 在 macOS 上出现双 Dock 图标 (需要 pyobjc)
+        # macOS特定的配置，用于确保应用处于活动状态
         if platform.system() == "Darwin":
             try:
-                import AppKit
+                import AppKit # type: ignore
                 AppKit.NSApp.setActivationPolicy_(AppKit.NSApplicationActivationPolicyRegular)
             except ImportError:
                 pass
-
         root = tk.Tk()
         app_instance = App(root)
         root.mainloop()

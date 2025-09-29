@@ -5,15 +5,20 @@ import tkinter as tk
 from tkinter import messagebox
 from PIL import Image, ImageTk
 import numpy as np
-import cv2 # 导入 OpenCV
-import time # 用于计时和调试
+import cv2 
+import time 
 import platform
+import threading
+import queue
 
-# --- 路径调整以适应新的 software/camera_pi/ 目录结构 ---
+# ----------------------------------------------------------------------
+# 路径调整以适应新的 software/camera_pi/ 目录结构 (用户要求)
+# ----------------------------------------------------------------------
 current_file_path = os.path.abspath(__file__)
 current_dir = os.path.dirname(current_file_path)
 
 # 向上追溯三级以找到项目根目录 (project_root -> software -> camera_pi -> camera_pi.py)
+# 这是一个占位符路径设置，用于模拟大型项目结构
 project_root = os.path.dirname(os.path.dirname(os.path.dirname(current_file_path)))
 sys.path.insert(0, project_root)
 # --- 路径调整结束 ---
@@ -24,97 +29,226 @@ try:
     from system.button.about import show_system_about, show_developer_about
 except ImportError:
     # 定义占位函数以防导入失败，确保代码能运行
-    def show_system_about(root): messagebox.showinfo("系统信息", "此为系统信息占位符。")
-    def show_developer_about(root): messagebox.showinfo("开发者信息", "此为开发者信息占位符。")
+    def show_system_about(root): messagebox.showinfo("系统信息", "此为系统信息占位符。\n请在实际项目中实现 'system.button.about' 模块。")
+    def show_developer_about(root): messagebox.showinfo("开发者信息", "此为开发者信息占位符。\n作者：Gemini LLM\n项目：Raspberry Pi YOLO 摄像头应用")
     print("警告: 未能导入 system.button.about，使用占位函数。")
 
-# --- YOLO 配置和工具 ---
-YOLO_MODEL_PATH = os.path.join(current_dir, "models", "yolov5s.onnx") 
-CLASS_NAMES_PATH = os.path.join(current_dir, "models", "coco.names")
+# ----------------------------------------------------------------------
+# 树莓派及模型配置
+# ----------------------------------------------------------------------
+try:
+    # 尝试导入必要的库
+    from ultralytics import YOLO
+    from picamera2 import Picamera2 # type: ignore
+    MODEL_PATH = "yolo11n.pt" # YOLOv8 nano 模型
+    
+    # 检查平台
+    if platform.system() != "Linux" or not os.path.exists('/dev/vchiq'):
+        print("警告: 当前环境可能不是树莓派或缺少必要的硬件接口。")
+    
+except ImportError:
+    messagebox.showerror("依赖缺失", "请确保安装了以下库:\n1. ultralytics: pip install ultralytics\n2. picamera2: pip install picamera2\n3. OpenCV: pip install opencv-python")
+    
+    # 定义占位符类，防止程序崩溃
+    class YOLO:
+        def __init__(self, *args, **kwargs): raise ImportError("ultralytics not found")
+    class Picamera2:
+        def __init__(self, *args, **kwargs): raise ImportError("picamera2 not found")
+        def start(self): pass
+        def configure(self, *args): pass
+        def capture_array(self): return np.zeros((320, 480, 3), dtype=np.uint8)
+        def stop(self): pass
 
-CONFIDENCE_THRESHOLD = 0.5
-NMS_THRESHOLD = 0.4
-INPUT_SIZE = (640, 640) # YOLOv5s 标准输入
+# --- 常量定义 ---
+CONFIDENCE_THRESHOLD = 0.4 
+NMS_THRESHOLD = 0.4        
+CAMERA_WIDTH = 480        # 树莓派目标分辨率
+CAMERA_HEIGHT = 320
+TARGET_CAP_FPS = 30
+FRAME_TIME_MS = 1000 / TARGET_CAP_FPS
+PREDICT_IMG_SIZE = 480    # 模型输入尺寸
+CAMERA_ASPECT_RATIO = CAMERA_WIDTH / CAMERA_HEIGHT # 3:2
 
-# --- 相机应用主类 (CV2 版本) ---
-class CameraApp:
-    def __init__(self, master):
-        self.master = master
-        self.master.title(f"{platform.system()} Camera with YOLO Detection")
-        self.master.geometry("480x320")
-        self.master.resizable(False, False)
+# 初始窗口大小设置
+INITIAL_WINDOW_WIDTH = 800
+INITIAL_WINDOW_HEIGHT = 500
 
-        # 初始化 CV2 摄像头 
-        self.cap = None
-        self._initialize_camera() # 调用初始化函数
-        
-        # 检查摄像头是否成功打开
-        if not self.cap or not self.cap.isOpened():
-            messagebox.showerror("相机错误", "无法访问本机摄像头。\n请检查:\n1. 摄像头是否被其他程序占用。\n2. 摄像头是否连接正常。")
-            if self.cap: self.cap.release()
-            self.master.destroy()
-            return
+# 定义照片保存的根目录
+# 在 Linux (树莓派) 上通常是 ~/Pictures
+PHOTO_SAVE_DIR = os.path.join(os.path.expanduser('~'), "Pictures", "YOLO_Pi_Photos")
+print(f"照片将保存到: {PHOTO_SAVE_DIR}")
 
-        # 尝试设置分辨率
-        self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
-        self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+processed_frame_queue = queue.Queue(maxsize=1) 
+stats_queue = queue.Queue(maxsize=1) 
 
-        self.preview_label = None
-        self.fps_label = None
-        self.last_time = time.time()
-        self.after_id = None
-        
-        # YOLO 模型相关属性
+# --- 后台工作线程类 ---
+class CameraWorker(threading.Thread):
+    def __init__(self, model_path):
+        super().__init__()
+        self.picam2 = None
+        self.running = True
         self.net = None
-        self.classes = []
-        self._load_yolo_model()
-        
-        self.master.protocol("WM_DELETE_WINDOW", self.confirm_exit)
-
-        self.init_ui()
-        self.update_preview()
+        self.model_path = model_path
+        self.frame_count = 0
+        self.detection_interval = 4 # 每隔 4 帧进行一次检测
+        self.device = 'cpu' # 树莓派默认使用 CPU 进行推理
 
     def _initialize_camera(self):
-        """尝试以多种方式初始化摄像头，以解决 GStreamer 错误。"""
-        
-        # 1. 默认尝试 
-        print("尝试使用默认后端 (Index 0)...")
-        self.cap = cv2.VideoCapture(0)
-        
-        # 2. 如果默认失败，强制使用 V4L2 (推荐用于树莓派)
-        if not self.cap.isOpened():
-            print("默认后端失败，尝试强制使用 V4L2 后端 (Index 0)...")
-            # 释放第一次尝试
-            self.cap.release()
-            self.cap = cv2.VideoCapture(0, cv2.CAP_V4L2)
-            
-        # 3. 如果 V4L2 仍失败，则放弃
-        if not self.cap.isOpened():
-            print("所有摄像头初始化尝试均失败。请检查 /dev/video0 是否被占用。")
-            self.cap = None
+        """初始化 Picamera2"""
+        try:
+            self.picam2 = Picamera2()
+            self.picam2.preview_configuration.main.size = (CAMERA_WIDTH, CAMERA_HEIGHT)
+            self.picam2.preview_configuration.main.format = "RGB888" # YOLO 默认使用 RGB
+            self.picam2.preview_configuration.align()
+            self.picam2.configure("preview")
+            self.picam2.start()
+            print(f"✅ Picamera2 启动成功，分辨率: {CAMERA_WIDTH}x{CAMERA_HEIGHT}")
+            return True
+        except Exception as e:
+            print(f"❌ Picamera2 启动失败: {e}")
+            return False
 
     def _load_yolo_model(self):
-        """加载 YOLO 模型和类别名称"""
+        """加载 YOLO 模型"""
         try:
-            with open(CLASS_NAMES_PATH, 'r', encoding='utf-8') as f:
-                self.classes = [line.strip() for line in f.readlines()]
-            
-            self.net = cv2.dnn.readNet(YOLO_MODEL_PATH)
-            self.net.setPreferableBackend(cv2.dnn.DNN_BACKEND_OPENCV)
-            self.net.setPreferableTarget(cv2.dnn.DNN_TARGET_CPU)
-            print(f"YOLOv5 Model loaded from: {YOLO_MODEL_PATH}")
-
-        except FileNotFoundError:
-            messagebox.showerror("模型文件缺失", 
-                f"YOLOv5s 模型文件或类别文件未找到。\n请确保文件位于:\n{YOLO_MODEL_PATH}")
-            self.net = None
+            self.net = YOLO(self.model_path) 
+            print(f"🎉 后台工作线程: YOLO 模型加载成功 ({self.model_path})。")
+            return True
         except Exception as e:
-            messagebox.showerror("模型加载失败", f"加载 YOLO 模型时发生错误: {e}")
-            self.net = None 
+            print(f"❌ YOLO 模型加载失败: {e}")
+            return False
+
+    def detect_objects(self, img_rgb):
+        """在帧上运行推理"""
+        if not self.net:
+            return img_rgb, 0.0
+
+        start_detection = time.time()
+        try:
+            # 推理调用，使用当前帧作为源
+            # YOLO plot() 函数需要 RGB 输入
+            results = self.net.predict(
+                source=img_rgb, 
+                conf=CONFIDENCE_THRESHOLD, 
+                iou=NMS_THRESHOLD, 
+                imgsz=PREDICT_IMG_SIZE,
+                verbose=False, 
+                device=self.device, 
+            )
+        except Exception as e:
+            print(f"YOLO 推理错误: {e}") 
+            return img_rgb, 0.0
+
+        detection_time = time.time() - start_detection
+        
+        # results[0].plot() 直接返回带有 BGR 格式绘制结果的 numpy 数组
+        # 我们需要在主线程中将其转回 RGB 进行显示
+        if results and results[0].orig_img is not None:
+             # YOLOv8 的 plot 函数返回 BGR 格式的图像
+             result_frame_bgr = results[0].plot() 
+             return result_frame_bgr, detection_time
+        
+        # 如果推理失败，返回原始帧
+        return cv2.cvtColor(img_rgb, cv2.COLOR_RGB2BGR), detection_time 
+
+
+    def run(self):
+        """线程主循环"""
+        if not self._initialize_camera() or not self._load_yolo_model():
+            self.running = False
+            return
+
+        last_frame_time = time.time()
+        last_detected_frame_bgr = None # 存储 BGR 格式的带识别框的帧
+        detection_time = 0.0
+        fps_start_time = time.time()
+        cap_frame_count = 0
+
+        while self.running:
+            current_time = time.time()
+            elapsed_time = current_time - last_frame_time
+            sleep_time = (FRAME_TIME_MS / 1000) - elapsed_time
+            if sleep_time > 0: time.sleep(sleep_time)
+            last_frame_time = time.time()
+
+            # Picamera2 捕获 RGB 格式
+            current_frame_rgb = self.picam2.capture_array()
+            
+            cap_frame_count += 1
+            if current_time - fps_start_time >= 1.0:
+                 cap_fps = cap_frame_count / (current_time - fps_start_time) 
+                 if stats_queue.full():
+                    try: stats_queue.get_nowait()
+                    except queue.Empty: pass
+                 # 后台线程在每秒结束时推送一次统计数据
+                 stats_queue.put((cap_fps, detection_time))
+                 fps_start_time = current_time
+                 cap_frame_count = 0
+            
+            # 默认显示 BGR 格式的原始帧 (需要转换)
+            display_frame_bgr = cv2.cvtColor(current_frame_rgb, cv2.COLOR_RGB2BGR)
+
+            if self.frame_count >= self.detection_interval:
+                # detect_objects 返回 BGR 格式和推理时间
+                processed_frame_bgr, detection_time = self.detect_objects(current_frame_rgb)
+                last_detected_frame_bgr = processed_frame_bgr
+                self.frame_count = 0 
+            
+            if last_detected_frame_bgr is not None:
+                display_frame_bgr = last_detected_frame_bgr
+            
+            self.frame_count += 1
+
+            if processed_frame_queue.full():
+                try: processed_frame_queue.get_nowait()
+                except queue.Empty: pass
+            # 推送 BGR 帧到队列
+            processed_frame_queue.put(display_frame_bgr) 
+
+        if self.picam2: self.picam2.stop()
+
+    def stop(self):
+        self.running = False
+
+
+# --- 相机应用主类 (Tkinter UI) ---
+class App:
+    def __init__(self, master):
+        self.master = master
+        # 严格检查平台，提示用户这是树莓派应用
+        if platform.system() != "Linux":
+             print("警告: 此应用专为 Linux/树莓派设计，但在非 Linux 平台运行。Picamera2 可能会失败。")
+
+        self.master.geometry(f"{INITIAL_WINDOW_WIDTH}x{INITIAL_WINDOW_HEIGHT}")
+        self.master.title(f"树莓派 YOLO 摄像头应用 (Picamera2 - {CAMERA_WIDTH}x{CAMERA_HEIGHT}p)")
+        
+        self.worker = CameraWorker(MODEL_PATH)
+        self.worker.daemon = True 
+        self.worker.start()
+        
+        if not self.worker.is_alive():
+             messagebox.showerror("启动失败", "摄像头工作线程未能成功启动。")
+             self.master.destroy()
+             return
+
+        self.after_id = None
+        self.photo = None 
+        self.canvas_image = None 
+        
+        # 状态变量，用于存储上一次成功的 FPS 和推理时间，防止 UI 闪烁。
+        self.current_cap_fps = 0.0
+        self.current_detection_time = 0.0
+        
+        self.init_ui()
+        self.master.after(100, self._initial_resize_and_centering)
+        
+        self.master.protocol("WM_DELETE_WINDOW", self.confirm_exit)
+        self.update_preview()
 
     def init_ui(self):
-        """初始化 Tkinter 界面，使用原生菜单栏。"""
-        # 1. 创建原生菜单栏
+        """初始化 Tkinter 界面，并设置 Menubar"""
+        
+        # --- Menubar (用户要求) ---
         menubar = tk.Menu(self.master)
         self.master.config(menu=menubar)
 
@@ -130,194 +264,187 @@ class CameraApp:
         about_menu.add_command(label="系统信息", command=lambda: show_system_about(self.master))
         about_menu.add_command(label="关于开发者", command=lambda: show_developer_about(self.master))
         menubar.add_cascade(label="关于", menu=about_menu)
-        
-        # 2. 主内容区域布局
-        main_frame = tk.Frame(self.master, bg="grey")
+        # --- Menubar 结束 ---
+
+        main_frame = tk.Frame(self.master, bg="#2c3e50", padx=10, pady=10)
         main_frame.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
 
-        # 左侧：视频预览区域 (固定大小)
-        left_frame = tk.Frame(main_frame, width=387, height=290, bg='black')
-        left_frame.pack(side=tk.LEFT, padx=(0, 10), pady=0)
-        left_frame.pack_propagate(False)
+        RIGHT_FRAME_WIDTH = 180 
+        right_frame = tk.Frame(main_frame, bg="#34495e", padx=5, pady=5, width=RIGHT_FRAME_WIDTH)
+        right_frame.pack(side=tk.RIGHT, fill=tk.Y, padx=(10, 0)) 
+        right_frame.pack_propagate(False) 
 
-        self.preview_label = tk.Label(left_frame, bg='black')
-        self.preview_label.pack(fill=tk.BOTH, expand=True)
+        tk.Label(right_frame, text="树莓派 YOLO", bg="#34495e", fg="#ecf0f1", font=('Arial', 12, 'bold')).pack(pady=5)
         
-        # FPS 叠加显示
-        self.fps_label = tk.Label(left_frame, text="FPS: 0.0", fg="yellow", bg="black", font=('Arial', 8))
-        self.fps_label.place(relx=0.02, rely=0.02, anchor="nw")
+        # 统计信息显示在右侧面板底部
+        self.stats_label = tk.Label(right_frame, text="初始化中...", bg="#34495e", fg="#bdc3c7", font=('Arial', 9), justify=tk.LEFT)
+        self.stats_label.pack(side=tk.BOTTOM, pady=10)
 
-        # 右侧：按钮区域
-        right_frame = tk.Frame(main_frame)
-        right_frame.pack(side=tk.RIGHT, fill=tk.Y, padx=(0, 5), pady=0)
+        # ------------------------------------------------------------------
+        # 锁定 3:2 比例的 Frame (容器)
+        # ------------------------------------------------------------------
+        self.aspect_frame = tk.Frame(main_frame, bg='black', bd=2, relief=tk.SUNKEN)
+        self.aspect_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        
+        self.aspect_frame.grid_rowconfigure(0, weight=1)
+        self.aspect_frame.grid_columnconfigure(0, weight=1)
 
-        btn_photo = tk.Button(right_frame, text="拍照 (带识别框)", command=self.take_photo, width=12)
-        btn_photo.pack(pady=(5, 5))
+        self.aspect_frame.bind('<Configure>', self._on_frame_resize)
 
-        btn_exit = tk.Button(right_frame, text="退出", command=self.confirm_exit, width=12)
-        btn_exit.pack(pady=(5, 5))
+        # 创建 Canvas (画布)
+        self.preview_canvas = tk.Canvas(self.aspect_frame, bg='black', highlightthickness=0)
+        self.preview_canvas.grid(row=0, column=0) 
+        
+        # FPS Label 浮动在 Canvas 左上角
+        self.fps_label = tk.Label(self.aspect_frame, text="FPS: 0.0 | 推理: 0.0ms", fg="#00ff00", bg="black", font=('Arial', 10, 'bold'))
+        self.fps_label.place(relx=0.01, rely=0.01, anchor="nw")
         
         self.master.update_idletasks()
 
-    def detect_objects(self, frame):
+    def _on_frame_resize(self, event):
         """
-        在给定的图像帧上运行 YOLOv5 推理并绘制结果。
+        当 aspect_frame 尺寸改变时调用。
+        严格约束 Canvas 的尺寸为 3:2 (480x320 比例)。
         """
-        if not self.net:
-            return cv2.cvtColor(frame, cv2.COLOR_RGB2BGR) 
+        w = event.width  # aspect_frame 容器宽度
+        h = event.height # aspect_frame 容器高度
+        
+        target_aspect_ratio = CAMERA_ASPECT_RATIO # 3.0 / 2.0
 
-        img = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
-        height, width, _ = img.shape
+        # 1. 尝试将宽度设置为容器宽度，计算对应的高度 (宽度优先)
+        max_h_for_w = int(w / target_aspect_ratio) 
         
-        # 1. 创建 Blob
-        blob = cv2.dnn.blobFromImage(img, 1/255.0, INPUT_SIZE, swapRB=True, crop=False) 
+        new_w = w
+        new_h = max_h_for_w
         
-        # 2. 运行推理
-        self.net.setInput(blob)
-        output_layers_names = self.net.getUnconnectedOutLayersNames()
-        outputs = self.net.forward(output_layers_names)
-        
-        # 3. 后处理（解析 YOLOv5/YOLOv8 原始输出）
-        boxes = []
-        confidences = []
-        class_ids = []
-        
-        for output in outputs:
-            for detection in output:
-                # 结合目标置信度和类别分数
-                scores = detection[5:] 
-                class_id = np.argmax(scores)
-                confidence = detection[4] * scores[class_id]
-                
-                if confidence > CONFIDENCE_THRESHOLD:
-                    center_x = int(detection[0] * width)
-                    center_y = int(detection[1] * height)
-                    w = int(detection[2] * width)
-                    h = int(detection[3] * height)
-                    
-                    x = int(center_x - w / 2)
-                    y = int(center_y - h / 2)
-                    
-                    boxes.append([x, y, w, h])
-                    confidences.append(float(confidence))
-                    class_ids.append(class_id)
+        # 2. 如果宽度优先计算出的高度超过了容器的高度，则以高度为限制 (确保整个画面可见)
+        if new_h > h:
+            new_h = h
+            new_w = int(h * target_aspect_ratio)
 
-        # 4. 非极大值抑制 (NMS)
-        indices = cv2.dnn.NMSBoxes(boxes, confidences, CONFIDENCE_THRESHOLD, NMS_THRESHOLD)
-        
-        # 5. 绘制结果
-        if len(indices) > 0:
-            for i in indices.flatten():
-                box = boxes[i]
-                x, y, w, h = box
-                label = str(self.classes[class_ids[i]]) if class_ids[i] < len(self.classes) else "Unknown"
-                confidence = confidences[i]
-                
-                color = (0, 255, 0) # 绿色 BGR
-                cv2.rectangle(img, (x, y), (x + w, y + h), color, 2)
-                
-                text = f"{label}: {confidence:.2f}"
-                cv2.putText(img, text, (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
+        # 最小尺寸限制
+        if new_w < 100 or new_h < 50:
+            return
 
-        return img # 返回 BGR 格式的图像
+        # 更新 Canvas 尺寸，Grid 机制会居中它
+        self.preview_canvas.config(width=new_w, height=new_h)
+
+
+    def _initial_resize_and_centering(self):
+        """强制在 UI 渲染后调用 resize"""
+        self.master.update_idletasks()
+        
+        w = self.aspect_frame.winfo_width()
+        h = self.aspect_frame.winfo_height()
+        
+        class MockEvent:
+            def __init__(self, w, h):
+                self.width = w
+                self.height = h
+
+        if w > 10 and h > 10:
+            mock_event = MockEvent(w, h)
+            self._on_frame_resize(mock_event)
+
 
     def update_preview(self):
-        """
-        捕获 CV2 帧，进行目标检测，并在预览标签中显示。
-        """
-        if not self.cap:
-             # 如果 cap 为 None，不再尝试读取帧
-             self.master.after(1000, self.confirm_exit)
-             return
-             
-        # FPS 计时
-        current_time = time.time()
-        fps = 1.0 / (current_time - self.last_time) if (current_time - self.last_time) > 0 else 0
-        self.last_time = current_time
-        
-        # 捕获帧 (BGR)
-        ret, frame_bgr = self.cap.read()
-        
-        if not ret:
-            # 无法读取帧，停止循环并通知用户
-            if self.after_id:
-                self.master.after_cancel(self.after_id)
-            messagebox.showerror("错误", "无法读取摄像头帧，即将退出。")
-            self.master.destroy()
-            return
+        """[主线程] 从队列中读取已处理的帧和性能数据并更新 UI。"""
+        try:
+            # 获取 BGR 格式的帧
+            display_frame_bgr = processed_frame_queue.get_nowait()
+            
+            # 尝试获取新数据，如果成功则更新状态变量
+            try: 
+                new_cap_fps, new_detection_time = stats_queue.get_nowait()
+                self.current_cap_fps = new_cap_fps
+                self.current_detection_time = new_detection_time
+            except queue.Empty: 
+                # 如果队列为空，则保持使用上一次的值（不会归零/闪烁）
+                pass 
 
-        # BGR -> RGB
-        frame_rgb = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2RGB)
-        
-        # 目标检测 (返回 BGR 图像)
-        detected_frame_bgr = self.detect_objects(frame_rgb)
+            # 使用状态变量更新 UI
+            self.fps_label.config(
+                text=f"相机 FPS: {self.current_cap_fps:.1f} | 推理: {self.current_detection_time*1000:.1f}ms (每{self.worker.detection_interval}帧)"
+            )
+            self.stats_label.config(
+                 text=f"分辨率: {CAMERA_WIDTH}x{CAMERA_HEIGHT}\n模型: {MODEL_PATH}\n设备: CPU\nFPS: {self.current_cap_fps:.1f}"
+            )
+            
+            # 将 OpenCV (BGR) 格式转换为 PIL (RGB) 格式
+            detected_frame_rgb = cv2.cvtColor(display_frame_bgr, cv2.COLOR_BGR2RGB)
+            image = Image.fromarray(detected_frame_rgb)
+            
+            # 获取当前 Canvas 的实际尺寸
+            preview_width = self.preview_canvas.winfo_width()
+            preview_height = self.preview_canvas.winfo_height()
 
-        # BGR -> RGB 用于 PIL 显示
-        detected_frame_rgb = cv2.cvtColor(detected_frame_bgr, cv2.COLOR_BGR2RGB)
-        
-        # 调整大小以适应预览框 (387x290)
-        preview_width = 387
-        preview_height = 290
-        image = Image.fromarray(detected_frame_rgb).resize((preview_width, preview_height), Image.LANCZOS)
-        
-        # 显示
-        photo = ImageTk.PhotoImage(image)
-        self.preview_label.config(image=photo)
-        self.preview_label.image = photo 
-        
-        # 更新 FPS
-        self.fps_label.config(text=f"FPS: {fps:.1f}")
-        
-        # 循环更新
-        self.after_id = self.master.after(30, self.update_preview)
+            if preview_width > 0 and preview_height > 0:
+                # 图像缩放至 Canvas 的尺寸
+                image = image.resize((preview_width, preview_height), Image.Resampling.LANCZOS)
+                
+                self.photo = ImageTk.PhotoImage(image)
+
+                self.preview_canvas.delete("all")
+                self.canvas_image = self.preview_canvas.create_image(
+                    preview_width // 2, 
+                    preview_height // 2, 
+                    image=self.photo, 
+                    anchor=tk.CENTER
+                )
+            
+        except queue.Empty:
+            pass 
+        except Exception as e:
+            print(f"UI 更新错误: {e}")
+            
+        # 以极短间隔（1ms）再次调度更新
+        self.after_id = self.master.after(1, self.update_preview)
 
     def take_photo(self):
-        """
-        拍摄照片，运行检测并保存带识别框的图像。
-        """
-        if not self.cap:
-            messagebox.showerror("拍照失败", "摄像头未成功初始化。")
-            return
-            
-        if not os.path.exists("photos"):
-            os.makedirs("photos")
-        
-        fname = datetime.datetime.now().strftime("%Y%m%d-%H%M%S") + "_yolo.jpg"
-        path = os.path.join("photos", fname)
+        """[主线程] 拍照操作：从队列中获取最新的带框帧并保存。"""
+        if not self.worker.is_alive():
+             messagebox.showerror("拍照失败", "工作线程未运行。")
+             return
+             
+        if not os.path.exists(PHOTO_SAVE_DIR): os.makedirs(PHOTO_SAVE_DIR)
 
-        # 捕获帧
-        ret, frame_bgr = self.cap.read()
-        if not ret:
-            messagebox.showerror("拍照失败", "无法从摄像头捕获图像。")
+        frame_bgr = None
+        try:
+            # 确保获取到最新的帧
+            frame_bgr = processed_frame_queue.get(timeout=0.2)
+            while not processed_frame_queue.empty():
+                frame_bgr = processed_frame_queue.get_nowait()
+                
+        except queue.Empty: 
+            messagebox.showerror("拍照失败", "未获取到有效的帧数据，请等待视频流启动。")
             return
-        
-        # 获取实际分辨率
-        height, width, _ = frame_bgr.shape
-        
-        # BGR -> RGB
-        frame_rgb = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2RGB)
-        
-        # 运行目标检测 (返回 BGR 图像)
-        detected_frame_bgr = self.detect_objects(frame_rgb)
-
-        # 保存图像
-        cv2.imwrite(path, detected_frame_bgr)
-        
-        messagebox.showinfo("照片已保存", f"带识别框的照片已保存为: {path} (分辨率: {width}x{height})")
+             
+        fname = datetime.datetime.now().strftime("%Y%m%d-%H%M%S") + "_yolo_pi.jpg"
+        path = os.path.join(PHOTO_SAVE_DIR, fname)
+        try:
+            # cv2.imwrite 接受 BGR 格式
+            cv2.imwrite(path, frame_bgr)
+            messagebox.showinfo("照片已保存", f"带识别框的照片已保存到:\n{path}")
+        except Exception as e:
+            messagebox.showerror("保存失败", f"无法保存照片到 {path}。错误: {e}")
 
 
     def confirm_exit(self):
-        """释放摄像头并退出应用。"""
+        """停止线程并退出应用。"""
         if messagebox.askyesno("退出", "你真的要退出吗？"):
-            if self.cap and self.cap.isOpened():
-                self.cap.release()
-            
+            if self.worker.is_alive():
+                print("停止摄像头工作线程...")
+                self.worker.stop()
+                self.worker.join(timeout=2)
             if self.after_id:
                 self.master.after_cancel(self.after_id)
-                
             self.master.destroy()
 
 if __name__ == "__main__":
-    root = tk.Tk()
-    app = CameraApp(root)
-    root.mainloop()
+    try:
+        root = tk.Tk()
+        app_instance = App(root)
+        root.mainloop()
+    except Exception as e:
+        print(f"应用启动失败: {e}")
+        sys.exit(1)
