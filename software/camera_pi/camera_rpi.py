@@ -60,10 +60,11 @@ class CameraAppRpiTorchScript:
         self.frame_width = 480
         self.frame_height = 320
         
-        # 随机生成颜色用于绘制边界框
+        # 随机生成颜色用于绘制边界框 (用于类别区分)
         np.random.seed(42)
         # 确保颜色列表长度足够
-        self.COLORS = np.random.uniform(0, 255, size=(max(80, len(self.CLASSES)), 3))
+        # 注意: OpenCV 使用 BGR 格式，所以这里生成的颜色是 BGR 顺序
+        self.COLORS = np.random.uniform(0, 255, size=(max(80, len(self.CLASSES)), 3)).astype(int)
     
     def _load_classes(self):
         """从本地文件加载类别标签"""
@@ -109,73 +110,104 @@ class CameraAppRpiTorchScript:
             # 将 RGB (3通道) 转换为 BGR 用于 OpenCV 绘制 (这是显示器的标准颜色空间)
             annotated_frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
             
-            self.frame_height, self.frame_width, _ = annotated_frame.shape
+            # 记录原始帧尺寸
+            original_h, original_w, _ = annotated_frame.shape
 
             # --- 核心 PyTorch 推理逻辑 ---
             if self.model:
                 # 1. 手动预处理：TorchScript 模型不接受 'size' 参数，必须手动缩放和转换。
                 
-                # 调整大小：从 480x320 缩放到模型需要的 320x320
-                img_resized = cv2.resize(frame, (self.input_width, self.input_height), interpolation=cv2.INTER_LINEAR)
+                # Letterbox 缩放计算 (模拟 YOLOv5 预处理，用于后续坐标校正)
+                r_w = self.input_width / original_w
+                r_h = self.input_height / original_h
+                # 取最小比例，这是 Letterbox 缩放的比例尺
+                r = min(r_w, r_h) 
                 
+                new_unpad_w = int(round(original_w * r))
+                new_unpad_h = int(round(original_h * r))
+                
+                # 计算填充量 (仅在一个维度上有填充)
+                dw = self.input_width - new_unpad_w  # 宽度填充
+                dh = self.input_height - new_unpad_h  # 高度填充
+                
+                # 将填充量平均分配到两边 (除以 2 并取整)
+                dw /= 2
+                dh /= 2
+
+                # 调整大小：缩放到 new_unpad_w x new_unpad_h
+                img_resized = cv2.resize(frame, (new_unpad_w, new_unpad_h), interpolation=cv2.INTER_LINEAR)
+
+                # Letterbox 填充：填充到 320x320
+                img_padded = cv2.copyMakeBorder(img_resized, int(dh), int(dh), int(dw), int(dw), cv2.BORDER_CONSTANT, value=(114, 114, 114))
+
                 # 转换为 Tensor，并移动到 CPU
-                img_tensor = torch.from_numpy(img_resized).to('cpu').float()
+                img_tensor = torch.from_numpy(img_padded).to('cpu').float()
                 
                 # 归一化 (0-255 -> 0.0-1.0) 和 维度调整 (HWC -> CHW -> BCHW)
                 # 结果形状应为 (1, 3, 320, 320)
                 input_tensor = img_tensor.permute(2, 0, 1).unsqueeze(0) / 255.0
 
-                # 2. 推理：现在只传入一个张量，解决 forward() 参数过多的错误
-                # results_tensor 应该是一个 [1, N, 6] 格式的张量
+                # 2. 推理
                 results_tensor = self.model(input_tensor)
                 
                 # 3. 后处理：假设模型的输出是经过 NMS 后的 [N, 6] 格式：
-                # [x1, y1, x2, y2, confidence, class_id] 且坐标是相对于 320x320 输入的。
                 
-                # 处理模型输出可能是一个元组的情况
                 if isinstance(results_tensor, tuple):
                     results_tensor = results_tensor[0]
                     
-                # 确保张量是 [N, 6] 格式，并转为 numpy
-                # 检查输出是否为空，如果为空，则跳过
                 if results_tensor.ndim > 1:
                     detections = results_tensor.squeeze(0).cpu().numpy() 
                 else:
                     detections = np.empty((0, 6))
 
-                # 计算缩放因子，用于将 320x320 的坐标映射回 480x320 的原始画面
-                scale_x = self.frame_width / self.input_width  # 480 / 320 = 1.5
-                scale_y = self.frame_height / self.input_height # 320 / 320 = 1.0
-
                 # 4. 遍历检测结果并绘制
                 for detection in detections:
-                    # 检查置信度
                     confidence = detection[4]
                     if confidence > self.CONFIDENCE_THRESHOLD:
                         
-                        # 提取边界框和类别
+                        # 提取边界框和类别 (相对于 320x320 Letterbox 图像)
                         x1, y1, x2, y2 = detection[:4].astype(int)
                         class_id = int(detection[5])
                         
-                        # 坐标缩放回原始画面尺寸 (480x320)
-                        x1_scaled = int(x1 * scale_x)
-                        y1_scaled = int(y1 * scale_y)
-                        x2_scaled = int(x2 * scale_x)
-                        y2_scaled = int(y2 * scale_y)
+                        # --- 5. 边界框坐标校正 (Letterbox 反向操作) ---
+                        
+                        # 移除填充
+                        x1 = x1 - dw
+                        y1 = y1 - dh
+                        x2 = x2 - dw
+                        y2 = y2 - dh
+                        
+                        # 反向缩放回原始尺寸 (480x320)
+                        x1_scaled = int(np.clip(x1 / r, 0, original_w))
+                        y1_scaled = int(np.clip(y1 / r, 0, original_h))
+                        x2_scaled = int(np.clip(x2 / r, 0, original_w))
+                        y2_scaled = int(np.clip(y2 / r, 0, original_h))
+                        
+                        # --- 6. 绘制 ---
                         
                         if class_id < len(self.CLASSES):
                             label = f"{self.CLASSES[class_id]}: {confidence:.2f}"
-                            # 使用 class_id 模运算确保颜色索引不越界
-                            color = self.COLORS[class_id % len(self.COLORS)] 
+                            # 根据类别 ID 获取不同的颜色
+                            color_bgr = self.COLORS[class_id % len(self.COLORS)].tolist() 
 
                             # 绘制边界框
-                            cv2.rectangle(annotated_frame, (x1_scaled, y1_scaled), (x2_scaled, y2_scaled), color, 2)
+                            cv2.rectangle(annotated_frame, (x1_scaled, y1_scaled), (x2_scaled, y2_scaled), color_bgr, 2)
                             
                             # 绘制标签背景和文字
                             y_pos = y1_scaled - 15 if y1_scaled - 15 > 15 else y1_scaled + 15
                             cv2.putText(annotated_frame, label, (x1_scaled, y_pos),
-                                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
+                                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, color_bgr, 2)
                         
+            # --- 颜色深度适配 (针对 16 位屏幕 R5G6B5) ---
+            # 适配 16 位显示器，通过颜色量化减少色带和失真。
+            
+            # B 通道 (索引 0) - 5 位
+            annotated_frame[:, :, 0] = (annotated_frame[:, :, 0] >> 3) << 3
+            # G 通道 (索引 1) - 6 位
+            annotated_frame[:, :, 1] = (annotated_frame[:, :, 1] >> 2) << 2
+            # R 通道 (索引 2) - 5 位
+            annotated_frame[:, :, 2] = (annotated_frame[:, :, 2] >> 3) << 3
+            
             # --- UI 绘制 (FPS & 退出按钮) ---
             
             # FPS 计算
