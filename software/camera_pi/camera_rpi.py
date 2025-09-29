@@ -29,7 +29,6 @@ except ImportError:
     print("警告: 未能导入 system.button.about，使用占位函数。")
 
 # --- YOLO 配置和工具 ---
-# 沿用 YOLOv5s 模型，因为它与旧版 OpenCV 兼容
 YOLO_MODEL_PATH = os.path.join(current_dir, "models", "yolov5s.onnx") 
 CLASS_NAMES_PATH = os.path.join(current_dir, "models", "coco.names")
 
@@ -45,14 +44,13 @@ class CameraApp:
         self.master.geometry("480x320")
         self.master.resizable(False, False)
 
-        # 初始化 CV2 摄像头 (增强鲁棒性)
+        # 初始化 CV2 摄像头 
         self.cap = None
-        self._initialize_camera() # 调用新的初始化函数
+        self._initialize_camera() # 调用初始化函数
         
         # 检查摄像头是否成功打开
         if not self.cap or not self.cap.isOpened():
-            messagebox.showerror("相机错误", "无法访问本机摄像头。请确保摄像头已连接、启用且未被占用。")
-            # 尝试销毁窗口时，如果 self.cap 存在则释放它
+            messagebox.showerror("相机错误", "无法访问本机摄像头。\n请检查:\n1. 摄像头是否被其他程序占用。\n2. 摄像头是否连接正常。")
             if self.cap: self.cap.release()
             self.master.destroy()
             return
@@ -78,7 +76,8 @@ class CameraApp:
 
     def _initialize_camera(self):
         """尝试以多种方式初始化摄像头，以解决 GStreamer 错误。"""
-        # 1. 默认尝试 (可能使用 GStreamer，您遇到的问题)
+        
+        # 1. 默认尝试 
         print("尝试使用默认后端 (Index 0)...")
         self.cap = cv2.VideoCapture(0)
         
@@ -89,16 +88,9 @@ class CameraApp:
             self.cap.release()
             self.cap = cv2.VideoCapture(0, cv2.CAP_V4L2)
             
-        # 3. 如果 V4L2 仍失败，尝试使用 libcamera 后端 (如果您的系统支持)
+        # 3. 如果 V4L2 仍失败，则放弃
         if not self.cap.isOpened():
-            print("V4L2 后端失败，尝试使用 LIPCAMEARA 后端 (Index 0)...")
-            self.cap.release()
-            # 注意: cv2.CAP_LIBCAMERA 需要 OpenCV 编译时支持 libcamera，但值得一试
-            self.cap = cv2.VideoCapture(0, cv2.CAP_LIBCAMERA)
-        
-        # 4. 如果所有尝试都失败，返回 None
-        if not self.cap.isOpened():
-            print("所有摄像头初始化尝试均失败。")
+            print("所有摄像头初始化尝试均失败。请检查 /dev/video0 是否被占用。")
             self.cap = None
 
     def _load_yolo_model(self):
