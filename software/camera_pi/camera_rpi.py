@@ -5,16 +5,17 @@ from picamera2 import Picamera2
 from ultralytics import YOLO
 
 class CameraAppRpi:
-    def __init__(self):
+    def __init__(self, mode=None):
+        self.mode = mode
         model_path = "software/camera_pi/models/yolo11n_ncnn_model"
 
         print("⚙️ 初始化 YOLO 模型 (CPU)...")
         self.model = YOLO(model_path)
         self.device = "cpu"
 
-        # 初始化摄像头
+        # 初始化摄像头，设置分辨率为 480x320
         self.picam2 = Picamera2()
-        config = self.picam2.create_preview_configuration(main={"size": (640, 480)})
+        config = self.picam2.create_preview_configuration(main={"size": (480, 320)})
         self.picam2.configure(config)
         self.picam2.start()
 

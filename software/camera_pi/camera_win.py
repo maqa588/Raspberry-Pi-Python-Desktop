@@ -4,7 +4,8 @@ import cv2
 from ultralytics import YOLO
 
 class CameraAppPC:
-    def __init__(self):
+    def __init__(self, mode=None):
+        self.mode = mode
         model_path = "software/camera_pi/models/yolo11n_ncnn_model"
 
         # 尝试使用 GPU

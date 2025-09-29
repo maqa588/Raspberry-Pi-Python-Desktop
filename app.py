@@ -58,11 +58,17 @@ if len(sys.argv) > 1:
     
     # 相机子进程启动 (使用类 App)
     elif mode == 'camera_mac_only':
-        start_sub_process_app('software.camera_pi.camera_mac', entry_name='CameraApp')
+        from software.camera_pi.camera_mac import CameraApp
+        app = CameraApp()
+        app.run()
     elif mode == 'camera_win_only':
-        start_sub_process_app('software.camera_pi.camera_win', entry_name='App')
+        from software.camera_pi.camera_win import CameraApp
+        app = CameraApp()
+        app.run()
     elif mode == 'camera_rpi_only':
-        start_sub_process_app('software.camera_pi.camera_rpi', entry_name='App')
+        from software.camera_pi.camera_rpi import CameraApp
+        app = CameraApp()
+        app.run()
     
     # DeepSeek AI 启动 (使用函数 create_deepseek_ui)
     elif mode == 'deepseek_only':
