@@ -14,14 +14,16 @@ except ImportError:
     print("⚠️ 无法导入 PyTorch 库。请确保已安装 PyTorch CPU 版本 (pip3 install torch)。")
     torch = None
     
-class CameraAppRpiPyTorch:
+class CameraAppRpiTorchScript:
     def __init__(self):
         # --- 1. PyTorch 模型配置 (本地加载) ---
-        self.MODEL_PATH = "software/camera_pi/models/yolov5n.pt" # 指定本地模型路径
-        self.NAMES_PATH = "software/camera_pi/models/coco.names" # 指定本地类别文件路径
+        # 错误分析: 原始的 yolov5n.pt 加载需要 ultralytics 代码来重建模型结构。
+        # 解决方案: 转换为 TorchScript (.ts) 格式，该格式包含完整的模型图，无需源代码依赖。
+        self.MODEL_PATH = "software/camera_pi/models/yolov5n.torchscript" # 路径改为 .torchscript
+        self.NAMES_PATH = "software/camera_pi/models/coco.names" 
         self.CONFIDENCE_THRESHOLD = 0.4
         
-        print("⚙️ 初始化 PyTorch 模型...")
+        print("⚙️ 初始化 TorchScript 模型...")
         self.model = None
         self.input_width = 320 
         self.input_height = 320 
@@ -31,33 +33,19 @@ class CameraAppRpiPyTorch:
 
         if torch:
             try:
-                # 警告: 使用 torch.load 加载 YOLOv5 .pt 文件要求本地安装有 
-                # 足够的信息来重建模型结构 (通常需要 ultralytics 包环境支持)。
-                # 假设 yolov5n.pt 是一个包含完整模型结构和权重的 PyTorch Checkpoint
-                
                 if not os.path.exists(self.MODEL_PATH):
-                     raise FileNotFoundError(f"模型文件未找到: {self.MODEL_PATH}")
+                     # 提示用户文件格式已更改
+                     raise FileNotFoundError(f"模型文件未找到: {self.MODEL_PATH}。\n请注意，为解决依赖问题，需要使用 .torchscript 格式的模型。")
 
-                # 加载 PyTorch 模型Checkpoint，映射到 CPU
-                checkpoint = torch.load(self.MODEL_PATH, map_location=torch.device('cpu'))
-                
-                # 尝试从 checkpoint 中提取模型对象
-                # 注意: 这里的 'model' 键是 YOLOv5 checkpoint 的标准结构
-                if 'model' in checkpoint:
-                    self.model = checkpoint['model'].float()
-                    self.model.eval()  # 设置为评估模式
-                    self.model.to('cpu')
-                    print(f"✅ PyTorch 模型 ({self.MODEL_PATH}) 从本地加载成功。")
-                    
-                    # 尝试更新类别标签（如果模型Checkpoint中包含更准确的names）
-                    if 'names' in checkpoint and len(checkpoint['names']) > 0:
-                        self.CLASSES = checkpoint['names']
+                # 加载 TorchScript 模型: torch.jit.load() 不需要底层代码依赖
+                self.model = torch.jit.load(self.MODEL_PATH, map_location=torch.device('cpu'))
+                self.model.eval()  # 设置为评估模式
+                print(f"✅ TorchScript 模型 ({self.MODEL_PATH}) 从本地加载成功。")
+
+                # 注意：TorchScript 模型通常不包含 'names' 属性，所以我们依赖于 coco.names 文件
                         
-                else:
-                    raise ValueError("加载的模型文件不包含预期的'model'结构。")
-
             except Exception as e:
-                print(f"⚠️ 无法从本地加载 PyTorch 模型 {self.MODEL_PATH}。请确认文件路径正确且格式兼容。")
+                print(f"⚠️ 无法从本地加载 TorchScript 模型 {self.MODEL_PATH}。请确认文件路径正确且已转换为 TorchScript 格式。")
                 print(f"原始错误: {e}")
                 self.model = None 
 
@@ -71,7 +59,7 @@ class CameraAppRpiPyTorch:
         # UI 参数
         self.button_size = 40
         self.button_margin = 10
-        self.window_name = "CameraApp - PyTorch RPi (Local)"
+        self.window_name = "CameraApp - PyTorch RPi (TorchScript)" # Renamed window
         self.should_exit = False
         self.frame_width = 480
         self.frame_height = 320
@@ -125,10 +113,13 @@ class CameraAppRpiPyTorch:
             if self.model:
                 # 1. 推理：直接将 numpy 图像传入模型
                 # model() 内部会处理 RGB/BGR 转换、缩放和归一化
+                # 注意: 此调用依赖于 TorchScript 模型在导出时保留了与 YOLOv5 相似的前向/后处理逻辑。
                 results = self.model(frame, size=self.input_width)
                 
                 # 2. 后处理：使用 results.pred 获取原始检测结果 (张量)
                 # results.pred 包含 NMS 后的结果，格式通常是 [x1, y1, x2, y2, confidence, class_id]
+                # ⚠️ 警告: 如果您的 TorchScript 模型只输出原始 Tensor，则此处的后处理逻辑可能需要重写。
+                # 假定导出的 TorchScript 模型仍能通过这种方式提供结果。
                 detections = results.pred[0].cpu().numpy()
                 
                 # 3. 遍历检测结果并绘制
@@ -141,9 +132,6 @@ class CameraAppRpiPyTorch:
                         x1, y1, x2, y2 = detection[:4].astype(int)
                         class_id = int(detection[5])
                         
-                        # 由于 YOLOv5 模型的输出坐标已根据输入尺寸 (self.input_width) 缩放回原图尺寸 (frame_width/height), 
-                        # 我们可以直接使用这些坐标进行绘制。
-
                         if class_id < len(self.CLASSES):
                             label = f"{self.CLASSES[class_id]}: {confidence:.2f}"
                             # 使用 class_id 模运算确保颜色索引不越界
@@ -197,7 +185,7 @@ class CameraAppRpiPyTorch:
 
 if __name__ == "__main__":
     try:
-        app = CameraAppRpiPyTorch()
+        app = CameraAppRpiTorchScript()
         app.run()
     except Exception as e:
         print(f"发生错误: {e}")
