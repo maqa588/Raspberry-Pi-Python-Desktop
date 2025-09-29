@@ -67,7 +67,7 @@ else:
     WEBVIEW_BACKEND = webview.WebViewBackendDefault
 
 class BrowserFrame(wx.Frame):
-    def __init__(self):
+    def __init__(self, startup_url=None):
         style = wx.DEFAULT_FRAME_STYLE
         if FRAMELESS:
             style = wx.NO_BORDER
@@ -112,7 +112,11 @@ class BrowserFrame(wx.Frame):
             self.btn_go.Bind(wx.EVT_BUTTON, self.on_go)
 
         self.home_url = "https://www.winddine.top"
-        self.load_url(self.home_url)
+        
+        # 如果提供了启动 URL，则加载该 URL，否则加载主页
+        target_url = startup_url if startup_url else self.home_url
+        self.load_url(target_url)
+        
         wx.CallAfter(self.update_nav_buttons)
 
     def create_menu_bar(self):
@@ -299,11 +303,16 @@ class BrowserFrame(wx.Frame):
         wx.MessageBox("开发者：\n\n- Spencer Maqa\n\n联系方式：maqa588@163.com\n\nGithub项目地址；https://github.com/maqa588/Raspberry-Pi-Python-Desktop", "关于开发者", wx.OK | wx.ICON_INFORMATION)
 
 
-def create_browser_window():
+def create_browser_window(startup_url=None):
     app = wx.App(False)
-    frame = BrowserFrame()
+    frame = BrowserFrame(startup_url=startup_url)
     frame.Show()
     app.MainLoop()
 
 if __name__ == "__main__":
-    create_browser_window()
+    startup_url = None
+    if len(sys.argv) > 1:
+        # 命令行参数中的第一个参数 (sys.argv[1]) 是 RSS 阅读器传递过来的 URL
+        startup_url = sys.argv[1]
+        
+    create_browser_window(startup_url)

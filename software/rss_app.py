@@ -6,20 +6,20 @@ import subprocess
 from tkinter import messagebox
 from pathlib import Path
 import re 
-import io # 用于处理网络下载的图片数据流
+from urllib.parse import urlparse # 用于 URL 解析
+import webbrowser # 用于打开 URL
 
 current_file_path = os.path.abspath(__file__)
 project_root = os.path.dirname(os.path.dirname(current_file_path))
 sys.path.insert(0, project_root)
-
-# 新增 Pillow 依赖，用于图片处理
+# 假设这些导入在项目中可用，用于菜单
 try:
-    from PIL import Image, ImageTk 
+    from system.button.about import show_system_about, show_developer_about
 except ImportError:
-    # 如果用户没有安装 Pillow，提供一个错误提示
-    print("错误: 需要安装 Pillow 库 (pip install Pillow) 才能显示图片。", file=sys.stderr)
-    Image = None
-    ImageTk = None
+    # 定义占位函数以防导入失败，确保代码能运行
+    def show_system_about(root): messagebox.showinfo("系统信息", "此为系统信息占位符。")
+    def show_developer_about(root): messagebox.showinfo("开发者信息", "此为开发者信息占位符。")
+    print("警告: 未能导入 system.button.about，使用占位函数。")
 
 # 假设 system.config 位于项目的某个父目录或可导入路径中
 try:
@@ -61,55 +61,142 @@ class RSSReaderApp:
         self.fetch_thread = None
         self.rss_url = tk.StringVar(value="https://winddine.top/rss.xml") # 默认 URL
         
-        # 用于存储侧边栏图片引用，防止被垃圾回收
-        self.sidebar_image_ref = None 
-        # 缓存所有文章的图片URL，用于滚动同步
-        self.article_image_urls = []
-        # 记录当前显示的图片 URL，避免重复加载
-        self.current_image_url = None
+        # -------------------
+        # 整合菜单功能
+        # -------------------
+        self.create_menu()
         
         self._setup_ui()
         
         # 立即加载默认 URL
         self.load_feed()
 
+    # ==========================================================================
+    # 菜单功能 (根据用户要求植入)
+    # ==========================================================================
+
+    def create_menu(self):
+        """根据操作系统动态创建菜单栏"""
+        # 检查操作系统是否为 macOS 或 Windows
+        if sys.platform == 'darwin' or sys.platform == 'win32':
+            print(f"Detected {sys.platform}, creating default Tkinter menu.")
+            self.create_default_menu()
+        else:
+            print(f"Detected {sys.platform}, creating custom top bar menu.")
+            self.create_custom_menu()
+
+    def create_default_menu(self):
+        """创建默认风格的 Tkinter 菜单栏"""
+        self.menubar = tk.Menu(self.master)
+        self.master.config(menu=self.menubar)
+
+        # 文件菜单 (刷新, 打开URL, 关闭)
+        file_menu = tk.Menu(self.menubar, tearoff=0)
+        self.menubar.add_cascade(label="文件", menu=file_menu)
+        file_menu.add_command(label="刷新", command=self.load_feed)
+        file_menu.add_command(label="打开URL", command=self._open_current_feed_link)
+        file_menu.add_separator()
+        file_menu.add_command(label="关闭", command=self.master.quit)
+
+        # 关于菜单 (系统信息, 开发者信息)
+        about_menu = tk.Menu(self.menubar, tearoff=0)
+        self.menubar.add_cascade(label="关于", menu=about_menu)
+        about_menu.add_command(label="系统信息", command=lambda:show_system_about(self.master))
+        about_menu.add_command(label="开发者信息", command=lambda:show_developer_about(self.master))
+
+    def create_custom_menu(self):
+        """创建自定义顶部栏（非 macOS 或 Windows 风格）"""
+        # 注意: 这里的菜单实现使用了 pack，可能与主应用的 pack 布局冲突，但为了遵循用户提供的结构，暂时使用 frame+pack
+        top_bar_frame = tk.Frame(self.master, bg="#f0f0f0", height=30, bd=1, relief=tk.RAISED)
+        # 使用 pack 来确保它在顶部，因为主内容也使用 pack
+        top_bar_frame.pack(fill='x', side='top')
+        
+        # 文件菜单按钮
+        file_mb = tk.Menubutton(top_bar_frame, text="文件", activebackground="#e1e1e1", bg="#f0f0f0", relief=tk.FLAT)
+        file_mb.pack(side=tk.LEFT, padx=5, pady=2)
+        file_menu = tk.Menu(file_mb, tearoff=0)
+        file_menu.add_command(label="刷新", command=self.load_feed)
+        file_menu.add_command(label="打开URL", command=self._open_current_feed_link)
+        file_menu.add_separator()
+        file_menu.add_command(label="关闭", command=self.master.quit)
+        file_mb.config(menu=file_menu)
+        
+        # 关于菜单按钮
+        about_mb = tk.Menubutton(top_bar_frame, text="关于", activebackground="#e1e1e1", bg="#f0f0f0", relief=tk.FLAT)
+        about_mb.pack(side=tk.LEFT, padx=5, pady=2)
+        about_menu = tk.Menu(about_mb, tearoff=0)
+        about_menu.add_command(label="系统信息", command=lambda:show_system_about(self.master))
+        about_menu.add_command(label="开发者信息", command=lambda:show_developer_about(self.master))
+        about_mb.config(menu=about_menu)
+
+        quit_btn = tk.Button(top_bar_frame, text="X", command=self.master.quit, relief=tk.FLAT, bg="#f0f0f0", fg="red", activebackground="#e1e1e1")
+        quit_btn.pack(side=tk.RIGHT, padx=5, pady=2)
+        
+    def _sanitize_url(self, url):
+        """
+        去除 URL 末尾的 RSS 文件名，如 /rss.xml, /rss, /index.xml 等，并确保有协议头。
+        例如：https://winddine.top/rss.xml -> https://winddine.top
+        """
+        if not url:
+            return ""
+        
+        # 移除常见的 RSS 文件后缀 (确保只在末尾匹配)
+        url = re.sub(r'/(rss(\.xml)?|index\.xml|feed\.xml|atom)$', '', url, flags=re.IGNORECASE)
+        
+        # 确保 URL 有协议头
+        parsed = urlparse(url)
+        if not parsed.scheme:
+            url = 'http://' + url
+            
+        return url
+
+    def _open_current_feed_link(self):
+        """
+        使用外部浏览器应用 (browser_app.py) 打开当前 RSS 订阅源的根 URL。
+        """
+        raw_url = self.rss_url.get()
+        if not raw_url:
+             messagebox.showinfo("提示", "URL 栏为空，无法打开。")
+             return
+             
+        target_url = self._sanitize_url(raw_url)
+
+        try:
+            # 浏览器应用路径：在项目根目录下的 software 文件夹中
+            browser_path = os.path.join(project_root, 'software', 'browser_app.py')
+            
+            # 检查浏览器文件是否存在
+            if not os.path.exists(browser_path):
+                messagebox.showerror("错误", f"找不到浏览器应用: {browser_path}")
+                return
+
+            # 使用 Python 解释器执行 browser_app.py 并传入目标 URL
+            # sys.executable 是当前运行的 Python 解释器的路径
+            subprocess.Popen([sys.executable, browser_path, target_url])
+            
+        except Exception as e:
+            messagebox.showerror("错误", f"无法启动浏览器应用或打开 URL: {target_url}\n错误信息: {e}")
+
+    # ==========================================================================
+    # UI/逻辑功能 (移除图片相关内容)
+    # ==========================================================================
+
     def _extract_text_and_images(self, text):
         """
-        提取纯文本和图片 URL，并用占位符标记图片位置。
-        返回 (cleaned_text_with_placeholders, image_urls)
-        注意：占位符文本最终会在插入到 Text 控件前被移除，这里主要目的是获取 URL。
+        [精简] 仅用于清理 HTML 标签并提取纯文本。
         """
-        image_urls = []
-        
-        # 正则表达式用于查找 <img> 标签并捕获 src 属性
-        img_pattern = re.compile(r'<img\s+[^>]*src\s*=\s*["\']([^"\']+)["\'][^>]*>', re.IGNORECASE)
+        # 1. 替换 <br> 或 <br /> 为换行符
+        text_with_newlines = re.sub(r'<br\s*/?>', '\n', text, flags=re.IGNORECASE)
 
-        def img_replacer(match):
-            url = match.group(1)
-            # 过滤掉常见的 1x1 追踪像素图或透明像素
-            if "telemetry.gif" in url or 'opacity:0' in match.group(0).lower():
-                 return '' # 忽略追踪像素，替换为空字符串
-            
-            # 只记录第一个图片 URL，因为侧边栏只显示一个
-            if not image_urls:
-                 image_urls.append(url)
-            
-            # 使用一个临时占位符，以便在后续步骤中清理文本
-            return f"\n[[TEMP_IMG_LOC_{len(image_urls) - 1}]]\n" 
-
-        # 1. 替换 <img> 标签为占位符，并收集 URL
-        text_with_placeholders = img_pattern.sub(img_replacer, text)
+        # 2. 移除所有 HTML 标签
+        cleaned_text = re.sub(r'<[^>]+>', '', text_with_newlines)
         
-        # 2. 替换 <br> 或 <br /> 为换行符
-        text_with_placeholders = re.sub(r'<br\s*/?>', '\n', text_with_placeholders, flags=re.IGNORECASE)
-
-        # 3. 移除所有剩余的 HTML 标签
-        cleaned_text = re.sub(r'<[^>]+>', '', text_with_placeholders)
-        
-        # 4. 清理结果：移除多余的空白行和首尾空格
-        return cleaned_text.strip(), image_urls
+        # 3. 清理结果：移除多余的空白行和首尾空格
+        # 返回一个空的 list 作为图片 URL，以匹配原来的方法签名（尽管现在不再使用）
+        return cleaned_text.strip(), []
 
     def _setup_ui(self):
+        """配置应用程序界面，现在只有 URL 栏和文章文本区。"""
         # -------------------
         # 1. URL 输入框架 (顶部)
         # -------------------
@@ -124,7 +211,7 @@ class RSSReaderApp:
         ttk.Button(url_frame, text="刷新", command=self.load_feed).pack(side='left')
 
         # -------------------
-        # 2. 标题和描述 (中间 - 紧凑布局)
+        # 2. 标题和描述 (中间)
         # -------------------
         header_frame = ttk.Frame(self.master, padding="5 2 5 2")
         header_frame.pack(fill='x')
@@ -147,20 +234,14 @@ class RSSReaderApp:
         ttk.Separator(self.master, orient='horizontal').pack(fill='x', padx=5, pady=2)
 
         # -------------------
-        # 3. 内容列表和图片显示 (底部 - 2:1 布局)
+        # 3. 内容文本区 (Text widget) - 占据剩余所有空间
         # -------------------
         
-        main_split_frame = ttk.Frame(self.master, padding="5 0 5 5")
-        main_split_frame.pack(fill='both', expand=True)
+        main_frame = ttk.Frame(self.master, padding="5 0 5 5")
+        main_frame.pack(fill='both', expand=True) # 占据所有剩余空间
         
-        # 配置 2:1 比例的网格
-        main_split_frame.grid_columnconfigure(0, weight=2) # 文本内容 (2/3)
-        main_split_frame.grid_columnconfigure(1, weight=1) # 图片显示 (1/3)
-        main_split_frame.grid_rowconfigure(0, weight=1)
-
-        # A. 文本内容区 (Text widget) - 2/3 宽度
-        text_frame = ttk.Frame(main_split_frame)
-        text_frame.grid(row=0, column=0, sticky='nsew', padx=(0, 5))
+        text_frame = ttk.Frame(main_frame)
+        text_frame.pack(side='left', fill='both', expand=True)
         
         self.content_text = tk.Text(text_frame, wrap='word', padx=3, pady=3, font=('Arial', 9))
         self.content_text.pack(side='left', fill='both', expand=True)
@@ -169,170 +250,20 @@ class RSSReaderApp:
         scrollbar.pack(side='right', fill='y')
         self.content_text.config(yscrollcommand=scrollbar.set)
         
-        # 绑定滚动事件：鼠标拖动滚动条时触发，用于图片同步
-        self.content_text.bind("<B1-Motion>", self._sync_image_on_scroll)
-        # 绑定鼠标滚轮事件 (可能因平台而异，但尝试绑定)
-        self.content_text.bind("<MouseWheel>", self._sync_image_on_scroll)
-        self.content_text.bind("<Button-4>", self._sync_image_on_scroll) # Linux/X11 up
-        self.content_text.bind("<Button-5>", self._sync_image_on_scroll) # Linux/X11 down
-        
         # 配置标签 tag 来模拟链接
         self.content_text.tag_config('title', font=('Arial', 11, 'bold')) 
         self.content_text.tag_config('link', foreground='#0066cc', underline=1)
         self.content_text.tag_bind('link', '<Button-1>', self._open_link)
         
-        # B. 图片显示区 (Label widget) - 1/3 宽度
-        image_frame = ttk.Frame(main_split_frame, relief='raised', borderwidth=1, padding=3)
-        image_frame.grid(row=0, column=1, sticky='nsew')
-        
-        self.image_display_label = ttk.Label(image_frame, 
-                                            text="无图片或正在加载...", 
-                                            anchor='center', 
-                                            justify='center',
-                                            font=('Arial', 8, 'italic'),
-                                            background='#333333', 
-                                            foreground='#AAAAAA')
-        self.image_display_label.pack(fill='both', expand=True)
-        
         # 初始化内容
         self.content_text.insert('1.0', "最新文章将显示在此处。请点击刷新按钮。")
         self.content_text.config(state='disabled') # 只读
 
-    def _sync_image_on_scroll(self, event=None):
-        """
-        根据 Text 控件的滚动位置，同步右侧图片。
-        查找当前最顶部的标记 (mark) 来确定当前可见的是哪篇文章。
-        """
-        # 确保有文章数据
-        if not self.article_image_urls:
-            return
-
-        # 获取当前 Text 控件可见区域的起始索引 (例如: "1.0")
-        visible_start_index = self.content_text.index("@0,0")
-        
-        # 遍历所有文章标记，找到第一个位于或低于可见起始索引的标记
-        target_article_index = 0 # 默认为第一篇
-        
-        for i in range(len(self.article_image_urls)):
-            mark_name = f"article_{i}"
-            try:
-                # 获取文章标记的位置
-                mark_index = self.content_text.index(mark_name)
-                
-                # 如果当前文章标记的位置在可见区域之上或与可见区域顶部重合，则更新目标索引
-                if self.content_text.compare(mark_index, "<=", visible_start_index):
-                    target_article_index = i
-                elif self.content_text.compare(mark_index, ">", visible_start_index):
-                    # 如果标记已经滚出可见区域顶部，则跳出循环，使用最后一个匹配的 target_article_index
-                    break
-            except tk.TclError:
-                # 标记不存在，跳过
-                continue
-
-        # 获取目标文章的图片 URL
-        new_image_url = self.article_image_urls[target_article_index]
-        
-        # 如果图片 URL 发生变化，则重新加载
-        if new_image_url != self.current_image_url:
-            self.current_image_url = new_image_url
-            if new_image_url and new_image_url != '#':
-                self._load_and_display_sidebar_image(new_image_url)
-            else:
-                self._display_placeholder_image("无图片")
-
-        # 返回 "break" 停止 Tkinter 对滚动事件的默认处理，但我们希望保持默认滚动，所以不返回。
-        # return 'break' 
-        
-    def _display_placeholder_image(self, text):
-        """显示图片占位符文本并清除任何现有图片。"""
-        # 清除旧图片引用
-        self.sidebar_image_ref = None 
-        # 同时清除 Label 上的 image 和更新文本
-        self.image_display_label.config(text=text, image='') 
-        
-    def _process_and_display_sidebar_image(self, image_data, url):
-        """
-        在主线程中将图片数据转换为 Tkinter 图像对象并显示在侧边栏 Label 上。
-        """
-        if not Image or not ImageTk:
-             self._display_placeholder_image("[图片加载失败: Pillow 库未安装]")
-             return
-             
-        # 防止加载过程中，用户快速滚动导致加载了旧的图片
-        if url != self.current_image_url:
-             return
-             
-        try:
-            image_stream = io.BytesIO(image_data)
-            pil_image = Image.open(image_stream)
-            
-            # 计算缩放尺寸，以适应右侧面板
-            # 假定 Label 占据 1/3 宽度，并留出边距 (1/3 * 480 = 160)
-            max_width = int(APP_WIDTH / 3) - 10 # 留出边框和 padding
-            max_height = APP_HEIGHT - 60 # 留出顶部输入框和底部边距
-            
-            width, height = pil_image.size
-            
-            if width > max_width or height > max_height:
-                # 计算缩放比例，取最小的，确保图片能完全放下
-                ratio = min(max_width / width, max_height / height)
-                new_width = int(width * ratio)
-                new_height = int(height * ratio)
-                # 使用 LANCZOS 获得高质量缩放
-                pil_image = pil_image.resize((new_width, new_height), Image.Resampling.LANCZOS)
-                 
-            tk_image = ImageTk.PhotoImage(pil_image)
-            
-            # 存储引用到实例变量中，防止被垃圾回收
-            self.sidebar_image_ref = tk_image
-
-            # 更新 Label: 清除文本，显示图片
-            self.image_display_label.config(image=self.sidebar_image_ref, text="")
-            
-        except Exception as e:
-            # Tkinter 图像处理失败
-            self._display_placeholder_image(f"[图片处理失败: {url[:30]}...]")
-            self.current_image_url = "#error" # 标记为错误，避免重复尝试加载
-
-    def _load_and_display_sidebar_image(self, url):
-        """
-        在后台线程中加载图片，并在主线程中调度显示在侧边栏 Label 上。
-        """
-        
-        # 如果当前URL已经是占位符或错误状态，则不重复加载
-        if url == self.current_image_url:
-            return
-            
-        self._display_placeholder_image("正在加载图片...")
-        self.current_image_url = url
-        
-        def fetch_image():
-            try:
-                response = requests.get(url, timeout=5)
-                response.raise_for_status()
-                image_data = response.content
-                
-                # 成功后，在主线程中处理图像对象和插入
-                self.master.after(0, lambda: self._process_and_display_sidebar_image(image_data, url))
-            
-            except requests.exceptions.RequestException as e:
-                # 图像加载失败，在主线程中插入错误提示
-                # 修复: 通过默认参数捕获 'e' 的值 (NameError 修复)
-                self.master.after(0, lambda error_e=e: self._display_placeholder_image(f"[图片加载失败: {error_e}]"))
-                self.current_image_url = "#error"
-            except Exception as e:
-                # 修复: 通过默认参数捕获 'e' 的值 (NameError 修复)
-                self.master.after(0, lambda error_e=e: self._display_placeholder_image(f"[图片未知错误: {error_e}]"))
-                self.current_image_url = "#error"
-
-        # 仅在 Pillow 成功导入时才尝试加载图片
-        if Image and ImageTk:
-            # 启动后台线程
-            thread = threading.Thread(target=fetch_image)
-            thread.daemon = True
-            thread.start()
-        else:
-             self.master.after(0, lambda: self._display_placeholder_image("[图片加载失败: Pillow 库未安装]"))
+    # 移除了所有图片加载和同步方法：
+    # _sync_image_on_scroll
+    # _display_placeholder_image
+    # _process_and_display_sidebar_image
+    # _load_and_display_sidebar_image
 
 
     def load_feed(self):
@@ -393,18 +324,16 @@ class RSSReaderApp:
 
     def _update_ui_with_data(self, result):
         """
-        在主线程中接收解析结果并更新 UI。
+        在主线程中接收解析结果并更新 UI。(已移除图片处理逻辑)
         """
         
         self._clear_content(initial=False) 
-        self.article_image_urls = [] # 清空缓存的图片 URL
         
         if not result['success']:
             # 处理错误情况
             error_message = result.get('error', '加载失败，无详细错误信息。')
             self.title_label.config(text="博客标题: 错误")
             self.feed_desc_var.set(f"描述: 加载失败\n{error_message}")
-            self._display_placeholder_image("加载失败")
             return
             
         feed = result['feed']
@@ -416,14 +345,14 @@ class RSSReaderApp:
         self.title_label.config(text=f"博客标题: {feed_title}")
         self.feed_desc_var.set(f"描述: {feed_description}") 
 
-        # 2. 插入文章内容和处理主图
+        # 2. 插入文章内容
         self.content_text.config(state='normal')
         
         if not feed.entries:
             self.content_text.insert('1.0', "此订阅源加载成功，但目前没有文章内容。")
         
         for entry_index, entry in enumerate(feed.entries):
-            # --- 1. 获取信息 ---
+            # --- 1. 获取文章信息和摘要 ---
             title = entry.get('title', '无标题')
             published = entry.get('published', entry.get('updated', '无日期'))
             link = entry.get('link', '#')
@@ -436,28 +365,17 @@ class RSSReaderApp:
             else:
                 summary = entry.get('summary', entry.get('description', '无摘要'))
                 
-            # 提取文本和图片URL
-            summary_cleaned_with_placeholders, image_urls = self._extract_text_and_images(summary)
-            
-            # 移除占位符，确保 Text 控件中只有纯文本
-            summary_cleaned = re.sub(r'\[\[TEMP_IMG_LOC_\d+\]\]', '', summary_cleaned_with_placeholders).strip()
-
-            # 缓存每篇文章的第一个图片 URL
-            first_image_url = image_urls[0] if image_urls else '#'
-            self.article_image_urls.append(first_image_url)
+            # 从 HTML 摘要中提取纯文本 (图片 URL 自动被忽略)
+            summary_cleaned, _ = self._extract_text_and_images(summary)
             
             # --- 2. 插入内容，创建新排版 ---
             
-            # 插入标记 (Mark) 用于定位文章的起始位置
-            mark_name = f"article_{entry_index}"
-            self.content_text.mark_set(mark_name, tk.END) # 将标记设置在文章起始点
-            self.content_text.mark_gravity(mark_name, 'left') # 确保标记在文本插入后保持在起始位置
-
-            # 插入标题
+            # 插入标题 (包含链接 tag)
             start_index = self.content_text.index(tk.END)
             self.content_text.insert(tk.END, title, 'title') 
             end_index_of_title = self.content_text.index(tk.END)
             self.content_text.tag_add('link', start_index, end_index_of_title)
+            # 注意：这里仍然使用 webbrowser 打开文章的链接
             self.content_text.tag_bind('link', '<Button-1>', lambda e, url=link: self._open_link(e, url))
             self.content_text.insert(tk.END, "\n")
 
@@ -473,13 +391,6 @@ class RSSReaderApp:
 
         self.content_text.config(state='disabled')
         
-        # 3. 初始处理侧边栏图片：显示第一篇文章的图片
-        if self.article_image_urls:
-            self._load_and_display_sidebar_image(self.article_image_urls[0])
-        else:
-            self._display_placeholder_image("无图片")
-
-
     def _clear_content(self, initial=False):
         """清空内容区域以便加载新数据。"""
         # 清空描述
@@ -499,15 +410,14 @@ class RSSReaderApp:
         
         self.content_text.config(state='disabled')
         
-        # 清除侧边栏图片
-        self.current_image_url = None
-        self._display_placeholder_image("无图片或正在加载...")
-
     def _open_link(self, event, url=None):
-        """处理链接点击事件，在外部浏览器中打开 URL。"""
+        """处理链接点击事件，在外部浏览器中打开 URL。（文章内部链接）"""
         if url and url != '#':
-            import webbrowser
-            webbrowser.open_new(url)
+            try:
+                # 保持使用系统默认浏览器打开文章链接
+                webbrowser.open_new_tab(url)
+            except Exception as e:
+                messagebox.showerror("错误", f"无法打开文章链接: {url}\n错误信息: {e}")
         # else: pass
 
 # ==============================================================================
