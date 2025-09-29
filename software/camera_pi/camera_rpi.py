@@ -7,79 +7,72 @@ from PIL import Image, ImageTk
 import numpy as np
 import cv2 
 import time 
-import platform
 import threading
 import queue
+from ultralytics import YOLO # 🚀 引入 Ultralytics YOLO 库
 
 # ----------------------------------------------------------------------
-# 路径调整以适应新的 software/camera_pi/ 目录结构 (用户要求)
+# 路径调整以适应项目结构
 # ----------------------------------------------------------------------
 current_file_path = os.path.abspath(__file__)
 current_dir = os.path.dirname(current_file_path)
 
-# 向上追溯三级以找到项目根目录 (project_root -> software -> camera_pi -> camera_pi.py)
-# 这是一个占位符路径设置，用于模拟大型项目结构
+# 向上追溯三级以找到项目根目录
 project_root = os.path.dirname(os.path.dirname(os.path.dirname(current_file_path)))
 sys.path.insert(0, project_root)
 # --- 路径调整结束 ---
 
 # 假设这些导入在项目中可用
 try:
-    # 从项目根目录导入 system 模块
     from system.button.about import show_system_about, show_developer_about
 except ImportError:
-    # 定义占位函数以防导入失败，确保代码能运行
-    def show_system_about(root): messagebox.showinfo("系统信息", "此为系统信息占位符。\n请在实际项目中实现 'system.button.about' 模块。")
-    def show_developer_about(root): messagebox.showinfo("开发者信息", "此为开发者信息占位符。\n作者：Gemini LLM\n项目：Raspberry Pi YOLO 摄像头应用")
+    def show_system_about(root): messagebox.showinfo("系统信息", "此为系统信息占位符。")
+    def show_developer_about(root): messagebox.showinfo("开发者信息", "此为开发者信息占位符。")
     print("警告: 未能导入 system.button.about，使用占位函数。")
 
 # ----------------------------------------------------------------------
 # 树莓派及模型配置
 # ----------------------------------------------------------------------
 try:
-    # 尝试导入必要的库
-    from ultralytics import YOLO
-    from picamera2 import Picamera2 # type: ignore
-    MODEL_PATH = "yolo11n.pt" # YOLOv8 nano 模型
-    
-    # 检查平台
-    if platform.system() != "Linux" or not os.path.exists('/dev/vchiq'):
-        print("警告: 当前环境可能不是树莓派或缺少必要的硬件接口。")
-    
+    # 尝试导入 Picamera2
+    from picamera2 import Picamera2
 except ImportError:
-    messagebox.showerror("依赖缺失", "请确保安装了以下库:\n1. ultralytics: pip install ultralytics\n2. picamera2: pip install picamera2\n3. OpenCV: pip install opencv-python")
-    
-    # 定义占位符类，防止程序崩溃
-    class YOLO:
-        def __init__(self, *args, **kwargs): raise ImportError("ultralytics not found")
+    messagebox.showerror("依赖缺失", "请确保安装了 picamera2, opencv-python 和 ultralytics。")
     class Picamera2:
         def __init__(self, *args, **kwargs): raise ImportError("picamera2 not found")
         def start(self): pass
         def configure(self, *args): pass
-        def capture_array(self): return np.zeros((320, 480, 3), dtype=np.uint8)
+        def capture_array(self): return np.zeros((480, 640, 3), dtype=np.uint8) 
         def stop(self): pass
+
+# --- NCNN 模型文件路径 (Ultralytics 需要导出的模型文件夹路径) ---
+# 注意：'yolo11n_ncnn_model' 必须是一个包含 param 和 bin 文件的目录
+MODEL_PATH = os.path.join(current_dir, "models", "yolo11n_ncnn_model") 
+# 检查模型文件夹是否存在
+if not os.path.isdir(MODEL_PATH):
+    print(f"❌ 警告: NCNN 模型文件夹未找到于 {MODEL_PATH}")
+
 
 # --- 常量定义 ---
 CONFIDENCE_THRESHOLD = 0.4 
 NMS_THRESHOLD = 0.4        
-CAMERA_WIDTH = 480        # 树莓派目标分辨率
-CAMERA_HEIGHT = 320
+CAMERA_WIDTH = 640        
+CAMERA_HEIGHT = 480       
 TARGET_CAP_FPS = 30
 FRAME_TIME_MS = 1000 / TARGET_CAP_FPS
-PREDICT_IMG_SIZE = 480    # 模型输入尺寸
-CAMERA_ASPECT_RATIO = CAMERA_WIDTH / CAMERA_HEIGHT # 3:2
+PREDICT_IMG_SIZE = 480    # NCNN 模型输入尺寸 (确保与导出的模型匹配)
+CAMERA_ASPECT_RATIO = CAMERA_WIDTH / CAMERA_HEIGHT 
 
 # 初始窗口大小设置
-INITIAL_WINDOW_WIDTH = 800
-INITIAL_WINDOW_HEIGHT = 500
+INITIAL_WINDOW_WIDTH = 480 
+INITIAL_WINDOW_HEIGHT = 320
 
 # 定义照片保存的根目录
-# 在 Linux (树莓派) 上通常是 ~/Pictures
-PHOTO_SAVE_DIR = os.path.join(os.path.expanduser('~'), "Pictures", "YOLO_Pi_Photos")
-print(f"照片将保存到: {PHOTO_SAVE_DIR}")
+PHOTO_SAVE_DIR = os.path.join(os.path.expanduser('~'), "Pictures", "NCNN_Pi_Photos")
 
 processed_frame_queue = queue.Queue(maxsize=1) 
 stats_queue = queue.Queue(maxsize=1) 
+
 
 # --- 后台工作线程类 ---
 class CameraWorker(threading.Thread):
@@ -87,74 +80,48 @@ class CameraWorker(threading.Thread):
         super().__init__()
         self.picam2 = None
         self.running = True
-        self.net = None
+        self.net = None # YOLO 模型对象
         self.model_path = model_path
         self.frame_count = 0
         self.detection_interval = 4 # 每隔 4 帧进行一次检测
-        self.device = 'cpu' # 树莓派默认使用 CPU 进行推理
 
     def _initialize_camera(self):
-        """初始化 Picamera2"""
+        """初始化 Picamera2 (使用 640x480)"""
         try:
             self.picam2 = Picamera2()
-            self.picam2.preview_configuration.main.size = (CAMERA_WIDTH, CAMERA_HEIGHT)
-            self.picam2.preview_configuration.main.format = "RGB888" # YOLO 默认使用 RGB
+            self.picam2.preview_configuration.main.size = (CAMERA_WIDTH, CAMERA_HEIGHT) 
+            self.picam2.preview_configuration.main.format = "RGB888" # RGB 格式
             self.picam2.preview_configuration.align()
             self.picam2.configure("preview")
             self.picam2.start()
-            print(f"✅ Picamera2 启动成功，分辨率: {CAMERA_WIDTH}x{CAMERA_HEIGHT}")
+            print(f"✅ Picamera2 启动成功，捕获分辨率: {CAMERA_WIDTH}x{CAMERA_HEIGHT}")
             return True
         except Exception as e:
             print(f"❌ Picamera2 启动失败: {e}")
             return False
 
-    def _load_yolo_model(self):
-        """加载 YOLO 模型"""
+    def _load_ncnn_model(self):
+        """
+        加载 Ultralytics YOLO NCNN 模型。
+        这里我们使用 Ultralytics 提供的简单模式。
+        """
         try:
+            # 🚀 简单模式: 使用 YOLO('model_dir') 加载 NCNN 封装
             self.net = YOLO(self.model_path) 
-            print(f"🎉 后台工作线程: YOLO 模型加载成功 ({self.model_path})。")
+            print(f"🎉 Ultralytics NCNN 模型加载成功: {self.model_path}")
+            
+            # 设置 NCNN 后端线程数（通常对 Pi 上的 CPU 优化很重要）
+            # 注意: 此设置可能需要通过 Ultralytics NCNN 绑定的特定 API (如果有) 或 NCNN 环境变量来控制。
+            # 这里我们假设 Ultralytics 默认使用多线程。
+
             return True
         except Exception as e:
-            print(f"❌ YOLO 模型加载失败: {e}")
+            print(f"❌ Ultralytics NCNN 模型加载失败: {e}")
             return False
-
-    def detect_objects(self, img_rgb):
-        """在帧上运行推理"""
-        if not self.net:
-            return img_rgb, 0.0
-
-        start_detection = time.time()
-        try:
-            # 推理调用，使用当前帧作为源
-            # YOLO plot() 函数需要 RGB 输入
-            results = self.net.predict(
-                source=img_rgb, 
-                conf=CONFIDENCE_THRESHOLD, 
-                iou=NMS_THRESHOLD, 
-                imgsz=PREDICT_IMG_SIZE,
-                verbose=False, 
-                device=self.device, 
-            )
-        except Exception as e:
-            print(f"YOLO 推理错误: {e}") 
-            return img_rgb, 0.0
-
-        detection_time = time.time() - start_detection
-        
-        # results[0].plot() 直接返回带有 BGR 格式绘制结果的 numpy 数组
-        # 我们需要在主线程中将其转回 RGB 进行显示
-        if results and results[0].orig_img is not None:
-             # YOLOv8 的 plot 函数返回 BGR 格式的图像
-             result_frame_bgr = results[0].plot() 
-             return result_frame_bgr, detection_time
-        
-        # 如果推理失败，返回原始帧
-        return cv2.cvtColor(img_rgb, cv2.COLOR_RGB2BGR), detection_time 
-
 
     def run(self):
         """线程主循环"""
-        if not self._initialize_camera() or not self._load_yolo_model():
+        if not self._initialize_camera() or not self._load_ncnn_model():
             self.running = False
             return
 
@@ -180,20 +147,40 @@ class CameraWorker(threading.Thread):
                  if stats_queue.full():
                     try: stats_queue.get_nowait()
                     except queue.Empty: pass
-                 # 后台线程在每秒结束时推送一次统计数据
                  stats_queue.put((cap_fps, detection_time))
                  fps_start_time = current_time
                  cap_frame_count = 0
             
-            # 默认显示 BGR 格式的原始帧 (需要转换)
+            # 默认显示 BGR 格式的原始帧
             display_frame_bgr = cv2.cvtColor(current_frame_rgb, cv2.COLOR_RGB2BGR)
 
             if self.frame_count >= self.detection_interval:
-                # detect_objects 返回 BGR 格式和推理时间
-                processed_frame_bgr, detection_time = self.detect_objects(current_frame_rgb)
-                last_detected_frame_bgr = processed_frame_bgr
+                start_detection = time.time()
+                
+                # 🚀 简单模式: Ultralytics 一步完成前处理、推理、后处理和 NMS
+                try:
+                    results = self.net(
+                        current_frame_rgb, # 输入 RGB 帧
+                        imgsz=PREDICT_IMG_SIZE, 
+                        verbose=False, 
+                        conf=CONFIDENCE_THRESHOLD, 
+                        iou=NMS_THRESHOLD,
+                        stream=False # 非流式模式
+                    )
+                    detection_time = time.time() - start_detection
+                    
+                    # 绘制结果：Ultralytics 的 .plot() 方法返回一个 BGR 格式的 NumPy 数组
+                    # 包含边界框、标签和置信度
+                    if results and len(results) > 0:
+                        last_detected_frame_bgr = results[0].plot() 
+
+                except Exception as e:
+                    print(f"Ultralytics NCNN 推理失败: {e}")
+                    detection_time = time.time() - start_detection
+                
                 self.frame_count = 0 
             
+            # 如果有上次的识别结果，则显示带框的帧
             if last_detected_frame_bgr is not None:
                 display_frame_bgr = last_detected_frame_bgr
             
@@ -202,7 +189,6 @@ class CameraWorker(threading.Thread):
             if processed_frame_queue.full():
                 try: processed_frame_queue.get_nowait()
                 except queue.Empty: pass
-            # 推送 BGR 帧到队列
             processed_frame_queue.put(display_frame_bgr) 
 
         if self.picam2: self.picam2.stop()
@@ -215,13 +201,12 @@ class CameraWorker(threading.Thread):
 class App:
     def __init__(self, master):
         self.master = master
-        # 严格检查平台，提示用户这是树莓派应用
-        if platform.system() != "Linux":
-             print("警告: 此应用专为 Linux/树莓派设计，但在非 Linux 平台运行。Picamera2 可能会失败。")
-
-        self.master.geometry(f"{INITIAL_WINDOW_WIDTH}x{INITIAL_WINDOW_HEIGHT}")
-        self.master.title(f"树莓派 YOLO 摄像头应用 (Picamera2 - {CAMERA_WIDTH}x{CAMERA_HEIGHT}p)")
         
+        # 设置窗口大小匹配屏幕分辨率 480x320
+        self.master.geometry(f"{INITIAL_WINDOW_WIDTH}x{INITIAL_WINDOW_HEIGHT}")
+        self.master.title(f"树莓派 Ultralytics NCNN 摄像头应用")
+        
+        # 启动工作线程，传入 NCNN 模型路径
         self.worker = CameraWorker(MODEL_PATH)
         self.worker.daemon = True 
         self.worker.start()
@@ -235,7 +220,6 @@ class App:
         self.photo = None 
         self.canvas_image = None 
         
-        # 状态变量，用于存储上一次成功的 FPS 和推理时间，防止 UI 闪烁。
         self.current_cap_fps = 0.0
         self.current_detection_time = 0.0
         
@@ -248,7 +232,7 @@ class App:
     def init_ui(self):
         """初始化 Tkinter 界面，并设置 Menubar"""
         
-        # --- Menubar (用户要求) ---
+        # --- Menubar ---
         menubar = tk.Menu(self.master)
         self.master.config(menu=menubar)
 
@@ -266,25 +250,15 @@ class App:
         menubar.add_cascade(label="关于", menu=about_menu)
         # --- Menubar 结束 ---
 
-        main_frame = tk.Frame(self.master, bg="#2c3e50", padx=10, pady=10)
+        # UI 布局
+        main_frame = tk.Frame(self.master, bg="#2c3e50")
         main_frame.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
 
-        RIGHT_FRAME_WIDTH = 180 
-        right_frame = tk.Frame(main_frame, bg="#34495e", padx=5, pady=5, width=RIGHT_FRAME_WIDTH)
-        right_frame.pack(side=tk.RIGHT, fill=tk.Y, padx=(10, 0)) 
-        right_frame.pack_propagate(False) 
-
-        tk.Label(right_frame, text="树莓派 YOLO", bg="#34495e", fg="#ecf0f1", font=('Arial', 12, 'bold')).pack(pady=5)
-        
-        # 统计信息显示在右侧面板底部
-        self.stats_label = tk.Label(right_frame, text="初始化中...", bg="#34495e", fg="#bdc3c7", font=('Arial', 9), justify=tk.LEFT)
-        self.stats_label.pack(side=tk.BOTTOM, pady=10)
-
         # ------------------------------------------------------------------
-        # 锁定 3:2 比例的 Frame (容器)
+        # 锁定 4:3 比例的 Frame (容器) - 用于显示摄像头画面
         # ------------------------------------------------------------------
         self.aspect_frame = tk.Frame(main_frame, bg='black', bd=2, relief=tk.SUNKEN)
-        self.aspect_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        self.aspect_frame.pack(side=tk.TOP, fill=tk.BOTH, expand=True, padx=5, pady=5)
         
         self.aspect_frame.grid_rowconfigure(0, weight=1)
         self.aspect_frame.grid_columnconfigure(0, weight=1)
@@ -296,37 +270,42 @@ class App:
         self.preview_canvas.grid(row=0, column=0) 
         
         # FPS Label 浮动在 Canvas 左上角
-        self.fps_label = tk.Label(self.aspect_frame, text="FPS: 0.0 | 推理: 0.0ms", fg="#00ff00", bg="black", font=('Arial', 10, 'bold'))
+        self.fps_label = tk.Label(self.aspect_frame, text="FPS: 0.0 | 推理: 0.0ms", fg="#00ff00", bg="black", font=('Arial', 9, 'bold'))
         self.fps_label.place(relx=0.01, rely=0.01, anchor="nw")
+        
+        # 统计信息区域 (放在底部)
+        info_frame = tk.Frame(self.master, bg="#34495e", padx=5, pady=2)
+        info_frame.pack(side=tk.BOTTOM, fill=tk.X)
+        
+        self.stats_label = tk.Label(info_frame, 
+                                    text=f"捕获: {CAMERA_WIDTH}x{CAMERA_HEIGHT} | 模型: Ultralytics NCNN | 输入: {PREDICT_IMG_SIZE}", 
+                                    bg="#34495e", 
+                                    fg="#bdc3c7", 
+                                    font=('Arial', 8), 
+                                    justify=tk.LEFT)
+        self.stats_label.pack(side=tk.LEFT, padx=5, pady=2)
         
         self.master.update_idletasks()
 
     def _on_frame_resize(self, event):
-        """
-        当 aspect_frame 尺寸改变时调用。
-        严格约束 Canvas 的尺寸为 3:2 (480x320 比例)。
-        """
-        w = event.width  # aspect_frame 容器宽度
-        h = event.height # aspect_frame 容器高度
+        """严格约束 Canvas 的尺寸为 4:3 (640x480 比例)。"""
+        w = event.width  
+        h = event.height 
         
-        target_aspect_ratio = CAMERA_ASPECT_RATIO # 3.0 / 2.0
+        target_aspect_ratio = CAMERA_ASPECT_RATIO 
 
-        # 1. 尝试将宽度设置为容器宽度，计算对应的高度 (宽度优先)
-        max_h_for_w = int(w / target_aspect_ratio) 
+        # 尝试以容器高度为基准计算宽度
+        new_w = int(h * target_aspect_ratio)
+        new_h = h
         
-        new_w = w
-        new_h = max_h_for_w
-        
-        # 2. 如果宽度优先计算出的高度超过了容器的高度，则以高度为限制 (确保整个画面可见)
-        if new_h > h:
-            new_h = h
-            new_w = int(h * target_aspect_ratio)
+        # 如果计算出的宽度超过了容器的宽度，则以宽度为限制
+        if new_w > w:
+            new_w = w
+            new_h = int(w / target_aspect_ratio)
 
-        # 最小尺寸限制
         if new_w < 100 or new_h < 50:
             return
 
-        # 更新 Canvas 尺寸，Grid 机制会居中它
         self.preview_canvas.config(width=new_w, height=new_h)
 
 
@@ -350,7 +329,6 @@ class App:
     def update_preview(self):
         """[主线程] 从队列中读取已处理的帧和性能数据并更新 UI。"""
         try:
-            # 获取 BGR 格式的帧
             display_frame_bgr = processed_frame_queue.get_nowait()
             
             # 尝试获取新数据，如果成功则更新状态变量
@@ -359,15 +337,15 @@ class App:
                 self.current_cap_fps = new_cap_fps
                 self.current_detection_time = new_detection_time
             except queue.Empty: 
-                # 如果队列为空，则保持使用上一次的值（不会归零/闪烁）
                 pass 
 
-            # 使用状态变量更新 UI
+            # 更新 FPS Label
             self.fps_label.config(
-                text=f"相机 FPS: {self.current_cap_fps:.1f} | 推理: {self.current_detection_time*1000:.1f}ms (每{self.worker.detection_interval}帧)"
+                text=f"FPS: {self.current_cap_fps:.1f} | 推理: {self.current_detection_time*1000:.1f}ms (每{self.worker.detection_interval}帧)"
             )
+            # 更新底部统计信息
             self.stats_label.config(
-                 text=f"分辨率: {CAMERA_WIDTH}x{CAMERA_HEIGHT}\n模型: {MODEL_PATH}\n设备: CPU\nFPS: {self.current_cap_fps:.1f}"
+                 text=f"捕获: {CAMERA_WIDTH}x{CAMERA_HEIGHT} | 模型: Ultralytics NCNN | 输入: {PREDICT_IMG_SIZE} | 实时 FPS: {self.current_cap_fps:.1f}"
             )
             
             # 将 OpenCV (BGR) 格式转换为 PIL (RGB) 格式
@@ -395,9 +373,8 @@ class App:
         except queue.Empty:
             pass 
         except Exception as e:
-            print(f"UI 更新错误: {e}")
+            print(f"UI 更新错误: {e}") 
             
-        # 以极短间隔（1ms）再次调度更新
         self.after_id = self.master.after(1, self.update_preview)
 
     def take_photo(self):
@@ -419,10 +396,9 @@ class App:
             messagebox.showerror("拍照失败", "未获取到有效的帧数据，请等待视频流启动。")
             return
              
-        fname = datetime.datetime.now().strftime("%Y%m%d-%H%M%S") + "_yolo_pi.jpg"
+        fname = datetime.datetime.now().strftime("%Y%m%d-%H%M%S") + "_ultralytics_ncnn_pi.jpg"
         path = os.path.join(PHOTO_SAVE_DIR, fname)
         try:
-            # cv2.imwrite 接受 BGR 格式
             cv2.imwrite(path, frame_bgr)
             messagebox.showinfo("照片已保存", f"带识别框的照片已保存到:\n{path}")
         except Exception as e:
@@ -443,6 +419,7 @@ class App:
 if __name__ == "__main__":
     try:
         root = tk.Tk()
+        root.resizable(False, False) 
         app_instance = App(root)
         root.mainloop()
     except Exception as e:
