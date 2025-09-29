@@ -9,6 +9,16 @@ import cv2
 import time 
 import platform
 
+# --- 导入 ultralytics 库 ---
+try:
+    from ultralytics import YOLO
+except ImportError:
+    messagebox.showerror("依赖缺失", "请先安装 ultralytics 库: pip install ultralytics")
+    # 如果找不到 ultralytics，我们让应用在加载模型时失败
+    class YOLO:
+        def __init__(self, *args, **kwargs):
+            raise ImportError("ultralytics not found")
+
 # --- 路径调整以适应项目结构 ---
 current_file_path = os.path.abspath(__file__)
 current_dir = os.path.dirname(current_file_path)
@@ -23,10 +33,11 @@ except ImportError:
     def show_developer_about(root): messagebox.showinfo("开发者信息", "此为开发者信息占位符。")
     print("警告: 未能导入 system.button.about，使用占位函数。")
 
-# --- YOLOv5 7.0 配置 ---
-# 请确保您的 yolov5s.onnx 或相应模型文件位于 models 目录下
-YOLO_MODEL_PATH = os.path.join(current_dir, "models", "yolov5s.onnx")
-CLASS_NAMES_PATH = os.path.join(current_dir, "models", "coco.names")
+# --- YOLOv8n 配置 (直接使用 .pt 文件) ---
+# 确保 yolov8n.pt 文件位于 models 目录下
+YOLO_MODEL_PATH = os.path.join(current_dir, "models", "yolov8n.pt")
+# 不再需要 CLASS_NAMES_PATH，因为模型自带类别名称
+# CLASS_NAMES_PATH = os.path.join(current_dir, "models", "coco.names")
 
 CONFIDENCE_THRESHOLD = 0.4 # 检测框置信度阈值
 NMS_THRESHOLD = 0.4        # 非极大值抑制阈值
@@ -36,7 +47,7 @@ INPUT_SIZE = (640, 640)
 class CameraApp:
     def __init__(self, master):
         self.master = master
-        self.master.title(f"{platform.system()} 桌面摄像头应用 (YOLOv5 7.0 检测)")
+        self.master.title(f"{platform.system()} 桌面摄像头应用 (YOLOv8n 检测 - ultralytics)")
         
         self.MASTER_WIDTH = 1200
         self.MASTER_HEIGHT = 700
@@ -62,9 +73,13 @@ class CameraApp:
         self.detection_time = 0.0 
         
         self.net = None
-        self.classes = []
+        self.classes = {} # 用于存储类别名称
         self._load_yolo_model()
         
+        if not self.net:
+             self.master.destroy()
+             return
+
         self.master.protocol("WM_DELETE_WINDOW", self.confirm_exit)
 
         self.init_ui()
@@ -72,12 +87,10 @@ class CameraApp:
 
     def _initialize_camera_robust(self, retries=10, delay_ms=500):
         """尝试初始化摄像头"""
-        # ... (略)
         for attempt in range(retries):
             if self.cap:
                 self.cap.release()
             
-            # 使用默认后端
             self.cap = cv2.VideoCapture(0)
             
             if self.cap.isOpened():
@@ -90,51 +103,35 @@ class CameraApp:
         return False
 
     def _load_yolo_model(self):
-        """加载 YOLO 模型并设置平台加速目标（DirectML/Metal 提示）"""
+        """加载 YOLO 模型（使用 ultralytics 库直接加载 .pt 文件）"""
         try:
-            with open(CLASS_NAMES_PATH, 'r', encoding='utf-8') as f:
-                self.classes = [line.strip() for line in f.readlines()]
-            
-            self.net = cv2.dnn.readNet(YOLO_MODEL_PATH)
-            
-            # --- 平台特定的加速目标设置 ---
-            self.net.setPreferableBackend(cv2.dnn.DNN_BACKEND_OPENCV)
-            
-            if platform.system() == "Windows":
-                # Windows上尝试OpenCL/OpenVINO (如果可用)，模拟DirectML加速
-                self.net.setPreferableTarget(cv2.dnn.DNN_TARGET_OPENCL) 
-                print("OpenCV DNN Target: 尝试 OPENCL (Windows)")
-                print("提示: 真正的 DirectML 加速需要特殊编译的 OpenCV 版本，当前为通用加速设置。")
-            elif platform.system() == "Darwin": # macOS
-                # macOS 保持 optimized CPU，会使用 Metal/MPS 优化后的 CPU 路径
-                self.net.setPreferableTarget(cv2.dnn.DNN_TARGET_CPU)
-                print("OpenCV DNN Target: CPU (macOS)")
-                print("提示: 真正的 Metal 加速需要特殊编译的 OpenCV 版本，当前为 CPU 优化路径。")
-            else: # Linux 或其他
-                self.net.setPreferableTarget(cv2.dnn.DNN_TARGET_CPU)
-                print("OpenCV DNN Target: CPU (Other OS)")
+            # 直接使用 ultralytics 库加载 .pt 模型
+            self.net = YOLO(YOLO_MODEL_PATH)
+            # ultralytics 模型自带类别名称
+            self.classes = self.net.names
+            print("✅ YOLOv8n 模型 (PyTorch) 使用 ultralytics 库加载成功。")
 
         except FileNotFoundError:
-            messagebox.showerror("模型文件缺失", f"YOLO 模型文件或类别文件未找到。请检查 {YOLO_MODEL_PATH}")
+            messagebox.showerror("模型文件缺失", f"YOLO 模型文件未找到。请检查 {YOLO_MODEL_PATH}")
             self.net = None
         except Exception as e:
-            messagebox.showerror("模型加载失败", f"加载 YOLO 模型时发生错误: {e}")
+            # 捕获 ImportError (如果 YOLO 类是占位符) 或其他 PyTorch/ultralytics 错误
+            messagebox.showerror("模型加载失败", f"加载 YOLO 模型时发生错误: {e}\n请确保已安装 'pip install ultralytics'")
             self.net = None 
 
     def init_ui(self):
         """初始化 Tkinter 界面，使用固定宽度的右侧面板。"""
-        # ... (布局代码保持不变，确保右侧按钮区宽度固定)
         menubar = tk.Menu(self.master)
         self.master.config(menu=menubar)
 
         main_frame = tk.Frame(self.master, bg="#2c3e50", padx=10, pady=10)
         main_frame.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
 
-        # 2. 右侧：按钮区域 (宽度固定，防止侵蚀)
+        # 2. 右侧：按钮区域 (宽度固定)
         RIGHT_FRAME_WIDTH = 180 
         right_frame = tk.Frame(main_frame, bg="#34495e", padx=10, pady=10, width=RIGHT_FRAME_WIDTH)
         right_frame.pack(side=tk.RIGHT, fill=tk.Y, padx=(10, 0)) 
-        right_frame.pack_propagate(False) # 关键：防止内部组件影响其固定宽度
+        right_frame.pack_propagate(False) 
 
         tk.Label(right_frame, text="操作面板", bg="#34495e", fg="#ecf0f1", font=('Arial', 12, 'bold')).pack(pady=10)
 
@@ -167,76 +164,50 @@ class CameraApp:
 
     def detect_objects(self, img_bgr):
         """
-        [YOLOv5 7.0 专用解析] 在图像帧上运行推理并绘制结果。
+        [YOLOv8n ultralytics 逻辑] 在图像帧上运行推理并绘制结果。
+        使用 ultralytics 提供的 predict 方法，它自动处理预处理、推理和后处理。
         """
         if not self.net:
             return img_bgr 
 
-        height, width, _ = img_bgr.shape
-        
-        # 1. 创建 Blob
-        blob = cv2.dnn.blobFromImage(img_bgr, 1/255.0, INPUT_SIZE, swapRB=True, crop=False) 
-        self.net.setInput(blob)
-        output_layers_names = self.net.getUnconnectedOutLayersNames()
-        outputs = self.net.forward(output_layers_names)
-        
-        # 2. 后处理
-        boxes = []
-        confidences = []
-        class_ids = []
-        
-        # YOLO ONNX 输出通常是 (1, N, 5 + num_classes)
-        output_data = outputs[0]
-        if output_data.ndim == 3:
-            output_data = output_data[0] 
-            
-        for detection in output_data:
-            # 数组结构: [center_x, center_y, box_w, box_h, objectness, class_1_score, class_2_score, ...]
-            
-            # 步骤 A: 提取分数
-            objectness_score = detection[4]
-            # 类别分数从索引 5 开始
-            class_scores = detection[5:]
-            class_id = np.argmax(class_scores)
-            
-            # 最终置信度：Objectness * Class Score
-            confidence = objectness_score * class_scores[class_id] 
-            
-            if confidence > CONFIDENCE_THRESHOLD:
-                # 步骤 B: 提取并转换坐标
-                center_x = detection[0] * width
-                center_y = detection[1] * height
-                w = detection[2] * width
-                h = detection[3] * height
-                
-                # 转换为左上角坐标 (x, y)
-                x = int(center_x - w / 2)
-                y = int(center_y - h / 2)
-                w = int(w)
-                h = int(h)
-                
-                boxes.append([x, y, w, h])
-                confidences.append(float(confidence))
-                class_ids.append(class_id)
+        # 1. 运行推理 (ultralytics 自动处理所有步骤)
+        # results 是一个列表，包含一个 Results 对象，因为我们传递了一张图片
+        # 强制使用 CPU 确保最大兼容性，避免未配置 GPU 导致崩溃
+        results = self.net.predict(
+            source=img_bgr, 
+            conf=CONFIDENCE_THRESHOLD, 
+            iou=NMS_THRESHOLD, 
+            imgsz=INPUT_SIZE[0],
+            verbose=False, # 禁用控制台输出
+            device='cpu' 
+        )
 
-        # 3. 非极大值抑制 (NMS)
-        indices = cv2.dnn.NMSBoxes(boxes, confidences, NMS_THRESHOLD, NMS_THRESHOLD)
+        result_frame = img_bgr.copy()
         
-        # 4. 绘制结果
-        result_frame = img_bgr.copy() 
-        if len(indices) > 0:
-            for i in indices.flatten():
-                box = boxes[i]
-                x, y, w, h = box
-                label = str(self.classes[class_ids[i]]) if class_ids[i] < len(self.classes) else "Unknown"
-                confidence = confidences[i]
-                
-                color = (0, 255, 0) # 绿色 BGR
-                cv2.rectangle(result_frame, (x, y), (x + w, y + h), color, 2)
-                
-                text = f"{label}: {confidence:.2f}"
-                text_y = max(y - 10, 30) 
-                cv2.putText(result_frame, text, (x, text_y), cv2.FONT_HERSHEY_SIMPLEX, 0.7, color, 2)
+        if not results or not results[0].boxes:
+            return result_frame
+
+        # 2. 绘制结果
+        res = results[0]
+        
+        # 遍历所有检测到的边界框
+        for box in res.boxes:
+            # 提取边界框坐标 (x1, y1, x2, y2)
+            x1, y1, x2, y2 = map(int, box.xyxy[0].tolist())
+            conf = box.conf[0].item()                       # 提取置信度
+            cls = int(box.cls[0].item())                    # 提取类别ID
+            
+            label = self.classes.get(cls, "Unknown")
+            
+            color = (0, 255, 0) # 绿色 BGR
+            
+            # 绘制矩形
+            cv2.rectangle(result_frame, (x1, y1), (x2, y2), color, 2)
+            
+            # 绘制标签和置信度
+            text = f"{label}: {conf:.2f}"
+            text_y = max(y1 - 10, 30) 
+            cv2.putText(result_frame, text, (x1, text_y), cv2.FONT_HERSHEY_SIMPLEX, 0.7, color, 2)
 
         return result_frame 
 
@@ -333,4 +304,7 @@ if __name__ == "__main__":
         root.mainloop()
     except Exception as e:
         print(f"应用启动失败: {e}")
+        # 如果 YOLO 导入失败，这里也可能捕获到错误
+        if "ultralytics" in str(e):
+             messagebox.showerror("启动失败", "缺少 ultralytics 依赖项，请检查安装。")
         sys.exit(1)
