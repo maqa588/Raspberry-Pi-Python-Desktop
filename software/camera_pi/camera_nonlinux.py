@@ -27,7 +27,6 @@ except ImportError:
     print("警告: 未能导入 system.button.about，使用占位函数。")
 
 # --- YOLOv5 配置和工具 ---
-# 切换回 YOLOv5s 模型和配置
 YOLO_MODEL_PATH = os.path.join(current_dir, "models", "yolov5s.onnx")
 CLASS_NAMES_PATH = os.path.join(current_dir, "models", "coco.names")
 
@@ -47,21 +46,16 @@ class CameraApp:
         self.master.geometry(f"{self.MASTER_WIDTH}x{self.MASTER_HEIGHT}")
         self.master.resizable(True, True) # 允许调整大小
 
-        # 初始化 CV2 摄像头，直接使用默认 index 0
-        self.cap = cv2.VideoCapture(0)
+        # 初始化 CV2 摄像头
+        self.cap = None
         
-        # 检查摄像头是否打开
-        if not self.cap.isOpened():
-            messagebox.showerror("相机错误", "无法访问本机摄像头。\n请检查摄像头是否连接且未被其他程序占用。")
+        # 关键：使用健壮的初始化函数处理 macOS 权限延迟
+        if not self._initialize_camera_robust(retries=10, delay_ms=500):
+            messagebox.showerror("相机错误", "无法访问本机摄像头。\n请检查:\n1. 摄像头是否连接正常。\n2. 在 macOS 提示时是否点击了“允许”")
             self.master.destroy()
             return
 
-        # 尝试设置分辨率 (通常是 640x480 或 1280x720)
-        # 这不影响 YOLO 推理，只影响捕获和保存时的原始分辨率
-        self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280) 
-        self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
-
-        # 预览区域尺寸
+        # 预览区域尺寸 (将在 init_ui 中确定)
         self.PREVIEW_WIDTH = 800
         self.PREVIEW_HEIGHT = 560
 
@@ -79,6 +73,33 @@ class CameraApp:
 
         self.init_ui()
         self.update_preview()
+
+    def _initialize_camera_robust(self, retries=10, delay_ms=500):
+        """
+        尝试初始化摄像头，并进行多次重试，以解决 macOS 权限提示延迟的问题。
+        """
+        print(f"尝试初始化摄像头 (0)，最多重试 {retries} 次...")
+        
+        for attempt in range(retries):
+            # 释放上一次可能失败的尝试
+            if self.cap:
+                self.cap.release()
+            
+            self.cap = cv2.VideoCapture(0)
+            
+            if self.cap.isOpened():
+                print(f"摄像头在第 {attempt + 1} 次尝试时成功打开。")
+                # 尝试设置分辨率
+                self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280) 
+                self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
+                return True
+            
+            print(f"摄像头打开失败 {attempt + 1}/{retries}。等待 {delay_ms/1000} 秒...")
+            # 阻塞等待，给系统和用户响应时间
+            time.sleep(delay_ms / 1000) 
+            
+        print("所有摄像头初始化尝试均失败。")
+        return False
 
     def _load_yolo_model(self):
         """加载 YOLO 模型和类别名称"""
@@ -123,11 +144,9 @@ class CameraApp:
         main_frame.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
 
         # 左侧：视频预览区域 (使用更大的尺寸)
-        # 注意：这里使用 pack 布局，让 frame 随内容居中
-        left_frame = tk.Frame(main_frame, width=self.PREVIEW_WIDTH, 
-                              height=self.PREVIEW_HEIGHT, bg='black', bd=2, relief=tk.SUNKEN)
+        left_frame = tk.Frame(main_frame, bg='black', bd=2, relief=tk.SUNKEN)
         left_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 10))
-        left_frame.pack_propagate(False) # 防止 Label 改变 Frame 大小
+        # 不使用 pack_propagate(False)，让它填充 main_frame 的可用空间
 
         self.preview_label = tk.Label(left_frame, bg='black')
         self.preview_label.pack(fill=tk.BOTH, expand=True)
@@ -136,28 +155,30 @@ class CameraApp:
         self.fps_label = tk.Label(left_frame, text="FPS: 0.0", fg="#ecf0f1", bg="black", font=('Arial', 10, 'bold'))
         self.fps_label.place(relx=0.01, rely=0.01, anchor="nw")
 
-        # 右侧：按钮区域 (使用更现代的配色)
+        # 右侧：按钮区域 
         right_frame = tk.Frame(main_frame, bg="#34495e", padx=10, pady=10)
         right_frame.pack(side=tk.RIGHT, fill=tk.Y)
         
         tk.Label(right_frame, text="操作面板", bg="#34495e", fg="#ecf0f1", font=('Arial', 12, 'bold')).pack(pady=10)
 
         # 统一按钮风格
-        button_style = {
+        # 修复了 'bg' 重复赋值的错误
+        base_button_style = {
             'width': 15,
             'height': 2,
-            'bg': '#3498db', 
-            'fg': 'white', 
-            'activebackground': '#2980b9', 
+            'fg': 'white', # 统一前景色
             'activeforeground': 'white',
-            'font': ('Arial', 10, 'bold')
+            'font': ('Arial', 10, 'bold'),
+            'bd': 0, 
+            'relief': tk.FLAT
         }
 
-        btn_photo = tk.Button(right_frame, text="拍照 (带识别框)", command=self.take_photo, **button_style)
+        btn_photo = tk.Button(right_frame, text="拍照 (带识别框)", command=self.take_photo, 
+                              bg='#3498db', activebackground='#2980b9', **base_button_style)
         btn_photo.pack(pady=10)
 
         btn_exit = tk.Button(right_frame, text="退出应用", command=self.confirm_exit, 
-                             bg='#e74c3c', activebackground='#c0392b', **button_style)
+                             bg='#e74c3c', activebackground='#c0392b', **base_button_style)
         btn_exit.pack(pady=10)
         
         self.master.update_idletasks()
@@ -166,7 +187,6 @@ class CameraApp:
     def detect_objects(self, frame):
         """
         在给定的图像帧上运行 YOLOv5 推理并绘制结果。
-        注意：已将逻辑调整为兼容 YOLOv5 的输出格式。
         """
         if not self.net:
             return cv2.cvtColor(frame, cv2.COLOR_RGB2BGR) 
@@ -179,7 +199,6 @@ class CameraApp:
         
         # 2. 运行推理
         self.net.setInput(blob)
-        # YOLOv5 通常只有一个输出层
         output_layers_names = self.net.getUnconnectedOutLayersNames()
         outputs = self.net.forward(output_layers_names)
         
@@ -188,17 +207,11 @@ class CameraApp:
         confidences = []
         class_ids = []
         
-        # YOLOv5 的输出是 (1, num_detections, 5 + num_classes)
-        # 这里处理第一个输出
         for detection in outputs[0][0]:
-            # detection[0:4] = x, y, w, h
-            # detection[4] = objectness score (YOLOv5 在 ONNX 中已集成到 class scores 中)
-            # detection[5:] = class scores
-            
-            # 在某些 ONNX 转换中，目标置信度可能需要乘以类别分数
             scores = detection[5:] 
             class_id = np.argmax(scores)
-            confidence = scores[class_id] * detection[4] # 乘以目标置信度
+            # YOLOv5 score = objectness * class_score
+            confidence = scores[class_id] * detection[4] 
             
             if confidence > CONFIDENCE_THRESHOLD:
                 center_x = int(detection[0] * width)
@@ -250,8 +263,9 @@ class CameraApp:
         ret, frame_bgr = self.cap.read()
         
         if not ret:
+            # 如果是 macOS，可能是权限刚获取成功后，第一帧读取失败，重试
             print("无法读取摄像头帧，等待重试...")
-            self.master.after(100, self.update_preview) # 短暂等待后重试
+            self.master.after(100, self.update_preview) 
             return
 
         # BGR -> RGB
@@ -264,17 +278,17 @@ class CameraApp:
         detected_frame_rgb = cv2.cvtColor(detected_frame_bgr, cv2.COLOR_BGR2RGB)
         
         # 调整大小以适应预览框
-        # 实时获取 label 的实际尺寸，确保画面填满预览框
         preview_width = self.preview_label.winfo_width()
         preview_height = self.preview_label.winfo_height()
         
         if preview_width > 0 and preview_height > 0:
+            # 使用 LANCZOS 获得高质量缩放
             image = Image.fromarray(detected_frame_rgb).resize((preview_width, preview_height), Image.LANCZOS)
             
             # 显示
             photo = ImageTk.PhotoImage(image)
             self.preview_label.config(image=photo)
-            self.preview_label.image = photo # 保持引用
+            self.preview_label.image = photo 
         
         # 更新 FPS
         self.fps_label.config(text=f"FPS: {fps:.1f}")
@@ -323,12 +337,13 @@ class CameraApp:
             self.master.destroy()
 
 if __name__ == "__main__":
-    # 使用 try-except 块来处理 Tkinter 启动错误
     try:
+        # Tkinter 主循环
         root = tk.Tk()
         app = CameraApp(root)
         root.mainloop()
     except Exception as e:
-        # 如果是摄像头启动失败，错误会在 messagebox 中显示，这里捕获其他启动错误
+        # 捕获应用级别的启动错误
         print(f"应用启动失败: {e}")
+        # 如果是 Mac 权限问题，可能在这里终止
         sys.exit(1)
