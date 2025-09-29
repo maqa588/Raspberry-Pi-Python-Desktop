@@ -53,12 +53,14 @@ class CameraAppRpiTorchScript:
         self.picam2.start()
 
         # UI 参数
-        self.button_size = 40
-        self.button_margin = 10
         self.window_name = "CameraApp - PyTorch RPi (TorchScript)"
         self.should_exit = False
         self.frame_width = 480
         self.frame_height = 320
+        
+        # 恢复自定义 X 按钮参数
+        self.button_size = 40
+        self.button_margin = 10
         
         # 随机生成颜色用于绘制边界框 (用于类别区分)
         np.random.seed(42)
@@ -77,9 +79,11 @@ class CameraAppRpiTorchScript:
             print(f"⚠️ 类别文件未找到: {self.NAMES_PATH}。使用默认标签。")
             return ["person", "object"]
         
+    # 恢复 mouse_callback 方法
     def mouse_callback(self, event, x, y, flags, param):
         """OpenCV 鼠标事件回调函数，用于检测 X 按钮点击。"""
         if event == cv2.EVENT_LBUTTONDOWN:
+            # 按钮区域检查，使用当前帧尺寸
             x0 = self.frame_width - self.button_size - self.button_margin
             y0 = self.button_margin
             x1 = self.frame_width - self.button_margin
@@ -88,14 +92,16 @@ class CameraAppRpiTorchScript:
             if (x >= x0 and x <= x1 and y >= y0 and y <= y1):
                 print("❌ X按钮被点击，退出程序...")
                 self.should_exit = True
-
+    
     def run(self):
         """主循环，用于捕获、推理和显示视频帧。"""
         print("▶️ 启动摄像头预览和 PyTorch 本地推理...")
         fps_counter = 0
         start_time = time.time()
         
-        cv2.namedWindow(self.window_name)
+        # 尝试使用 WINDOW_NORMAL 减少窗口装饰（可能有助于减少导航栏样式）
+        cv2.namedWindow(self.window_name, cv2.WINDOW_NORMAL | cv2.WINDOW_KEEPRATIO)
+        # 恢复鼠标回调
         cv2.setMouseCallback(self.window_name, self.mouse_callback, None) 
 
         while True:
@@ -112,46 +118,46 @@ class CameraAppRpiTorchScript:
             
             # 记录原始帧尺寸
             original_h, original_w, _ = annotated_frame.shape
+            self.frame_height, self.frame_width = original_h, original_w # 更新 UI 尺寸
 
             # --- 核心 PyTorch 推理逻辑 ---
             if self.model:
-                # 1. 手动预处理：TorchScript 模型不接受 'size' 参数，必须手动缩放和转换。
+                # 1. Letterbox 预处理和缩放计算
                 
-                # Letterbox 缩放计算 (模拟 YOLOv5 预处理，用于后续坐标校正)
+                # Letterbox 缩放比例
                 r_w = self.input_width / original_w
                 r_h = self.input_height / original_h
-                # 取最小比例，这是 Letterbox 缩放的比例尺
                 r = min(r_w, r_h) 
                 
                 new_unpad_w = int(round(original_w * r))
                 new_unpad_h = int(round(original_h * r))
                 
-                # 计算填充量 (仅在一个维度上有填充)
-                dw = self.input_width - new_unpad_w  # 宽度填充
-                dh = self.input_height - new_unpad_h  # 高度填充
+                # 计算总填充量
+                dw = self.input_width - new_unpad_w
+                dh = self.input_height - new_unpad_h
                 
-                # 将填充量平均分配到两边 (除以 2 并取整)
-                dw /= 2
-                dh /= 2
+                # 确定对称填充的左右和上下边距 (必须是整数)
+                pad_left = int(dw / 2) # 左侧填充
+                pad_top = int(dh / 2)  # 顶部填充
+                pad_right = dw - pad_left # 右侧填充
+                pad_bottom = dh - pad_top # 底部填充
 
                 # 调整大小：缩放到 new_unpad_w x new_unpad_h
                 img_resized = cv2.resize(frame, (new_unpad_w, new_unpad_h), interpolation=cv2.INTER_LINEAR)
 
                 # Letterbox 填充：填充到 320x320
-                img_padded = cv2.copyMakeBorder(img_resized, int(dh), int(dh), int(dw), int(dw), cv2.BORDER_CONSTANT, value=(114, 114, 114))
+                img_padded = cv2.copyMakeBorder(img_resized, pad_top, pad_bottom, pad_left, pad_right, cv2.BORDER_CONSTANT, value=(114, 114, 114))
 
                 # 转换为 Tensor，并移动到 CPU
                 img_tensor = torch.from_numpy(img_padded).to('cpu').float()
                 
                 # 归一化 (0-255 -> 0.0-1.0) 和 维度调整 (HWC -> CHW -> BCHW)
-                # 结果形状应为 (1, 3, 320, 320)
                 input_tensor = img_tensor.permute(2, 0, 1).unsqueeze(0) / 255.0
 
                 # 2. 推理
                 results_tensor = self.model(input_tensor)
                 
-                # 3. 后处理：假设模型的输出是经过 NMS 后的 [N, 6] 格式：
-                
+                # 3. 后处理
                 if isinstance(results_tensor, tuple):
                     results_tensor = results_tensor[0]
                     
@@ -171,11 +177,11 @@ class CameraAppRpiTorchScript:
                         
                         # --- 5. 边界框坐标校正 (Letterbox 反向操作) ---
                         
-                        # 移除填充
-                        x1 = x1 - dw
-                        y1 = y1 - dh
-                        x2 = x2 - dw
-                        y2 = y2 - dh
+                        # 移除填充 (减去左侧和顶部的填充量)
+                        x1 = x1 - pad_left
+                        y1 = y1 - pad_top
+                        x2 = x2 - pad_left
+                        y2 = y2 - pad_top
                         
                         # 反向缩放回原始尺寸 (480x320)
                         x1_scaled = int(np.clip(x1 / r, 0, original_w))
@@ -183,11 +189,11 @@ class CameraAppRpiTorchScript:
                         x2_scaled = int(np.clip(x2 / r, 0, original_w))
                         y2_scaled = int(np.clip(y2 / r, 0, original_h))
                         
-                        # --- 6. 绘制 ---
+                        # --- 6. 绘制 (多色) ---
                         
                         if class_id < len(self.CLASSES):
                             label = f"{self.CLASSES[class_id]}: {confidence:.2f}"
-                            # 根据类别 ID 获取不同的颜色
+                            # 根据类别 ID 获取不同的颜色 (多色实现)
                             color_bgr = self.COLORS[class_id % len(self.COLORS)].tolist() 
 
                             # 绘制边界框
@@ -201,14 +207,14 @@ class CameraAppRpiTorchScript:
             # --- 颜色深度适配 (针对 16 位屏幕 R5G6B5) ---
             # 适配 16 位显示器，通过颜色量化减少色带和失真。
             
-            # B 通道 (索引 0) - 5 位
+            # B 通道 (索引 0) - 5 位 (丢弃低 3 位)
             annotated_frame[:, :, 0] = (annotated_frame[:, :, 0] >> 3) << 3
-            # G 通道 (索引 1) - 6 位
+            # G 通道 (索引 1) - 6 位 (丢弃低 2 位)
             annotated_frame[:, :, 1] = (annotated_frame[:, :, 1] >> 2) << 2
-            # R 通道 (索引 2) - 5 位
+            # R 通道 (索引 2) - 5 位 (丢弃低 3 位)
             annotated_frame[:, :, 2] = (annotated_frame[:, :, 2] >> 3) << 3
             
-            # --- UI 绘制 (FPS & 退出按钮) ---
+            # --- UI 绘制 (FPS 和 X 按钮) ---
             
             # FPS 计算
             fps_counter += 1
@@ -237,7 +243,8 @@ class CameraAppRpiTorchScript:
 
             # 检查退出条件
             key = cv2.waitKey(1) & 0xFF
-            if key == ord('q') or self.should_exit:
+            # 现在可以通过 'q' 键或点击自定义 X 按钮退出
+            if key == ord('q') or self.should_exit: 
                 print("程序退出中...")
                 break
 
