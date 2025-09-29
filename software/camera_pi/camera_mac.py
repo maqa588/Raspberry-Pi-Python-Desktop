@@ -22,9 +22,9 @@ except ImportError:
 current_file_path = os.path.abspath(__file__)
 current_dir = os.path.dirname(current_file_path)
 
-# --- YOLOv8n Core ML 配置 (专为 macOS 优化) ---
-# 明确指定 Core ML 模型包的路径。macOS 将其识别为 yolov8n.mlpackage 文件。
-COREML_MODEL_PATH = os.path.join(current_dir, "models", "yolov8n_coreml")
+# --- YOLOv11n Core ML 配置 (专为 macOS 优化) ---
+# 已更新为 YOLOv11n 模型
+COREML_MODEL_PATH = os.path.join(current_dir, "models", "yolov11n_coreml")
 
 CONFIDENCE_THRESHOLD = 0.4 # 检测框置信度阈值
 NMS_THRESHOLD = 0.4        # 非极大值抑制阈值
@@ -37,12 +37,12 @@ class CameraApp:
         
         # 强制检查平台和 Core ML 文件
         if platform.system() != "Darwin" or not os.path.exists(COREML_MODEL_PATH):
-             msg = "错误：此版本专为 macOS Core ML 设计，请确保：\n1. 操作系统为 macOS。\n2. models 目录下存在 yolov8n_coreml (.mlpackage) 文件包。"
+             msg = "错误：此版本专为 macOS Core ML 设计，请确保：\n1. 操作系统为 macOS。\n2. models 目录下存在 yolov11n_coreml (.mlpackage) 文件包。"
              messagebox.showerror("配置错误", msg)
              self.master.destroy()
              return
 
-        self.master.title("macOS 高性能摄像头应用 (YOLOv8n Core ML/ANE)")
+        self.master.title("macOS 高性能摄像头应用 (YOLOv11n Core ML/ANE)")
         
         self.MASTER_WIDTH = 1200
         self.MASTER_HEIGHT = 700
@@ -110,7 +110,7 @@ class CameraApp:
                  
             self.net = YOLO(COREML_MODEL_PATH)
             self.classes = self.net.names
-            print("🎉 YOLOv8n 模型 (Core ML) 加载成功。ANE 加速已启用。")
+            print("🎉 YOLOv11n 模型 (Core ML) 加载成功。ANE 加速已启用。")
 
         except Exception as e:
             messagebox.showerror("模型加载失败", f"加载 Core ML 模型时发生致命错误: {e}")
@@ -188,7 +188,6 @@ class CameraApp:
         # 遍历所有检测到的边界框
         for box in res.boxes:
             # 提取边界框坐标 (x1, y1, x2, y2)。必须调用 .cpu().int().tolist()
-            # 以确保即使在 Core ML 模式下，数据格式转换也是安全的
             x1, y1, x2, y2 = map(int, box.xyxy[0].cpu().int().tolist())
             conf = box.conf[0].item()                       # 提取置信度
             cls = int(box.cls[0].item())                    # 提取类别ID
