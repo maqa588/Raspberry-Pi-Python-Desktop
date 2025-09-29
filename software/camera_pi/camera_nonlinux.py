@@ -9,15 +9,23 @@ import cv2
 import time 
 import platform
 
-# --- 导入 ultralytics 库 ---
+# --- 导入 ultralytics 库和 PyTorch ---
 try:
     from ultralytics import YOLO
+    import torch # 需要导入 PyTorch 来检查 MPS/CUDA
 except ImportError:
-    messagebox.showerror("依赖缺失", "请先安装 ultralytics 库: pip install ultralytics")
+    messagebox.showerror("依赖缺失", "请先安装 ultralytics 库 (包含 PyTorch): pip install ultralytics")
     # 如果找不到 ultralytics，我们让应用在加载模型时失败
     class YOLO:
         def __init__(self, *args, **kwargs):
             raise ImportError("ultralytics not found")
+    # 占位符，防止 torch 导入失败导致崩溃
+    class torch:
+        class backends:
+            class mps:
+                @staticmethod
+                def is_available():
+                    return False
 
 # --- 路径调整以适应项目结构 ---
 current_file_path = os.path.abspath(__file__)
@@ -74,6 +82,7 @@ class CameraApp:
         
         self.net = None
         self.classes = {} # 用于存储类别名称
+        self.device = 'cpu' # 初始化设备为 CPU
         self._load_yolo_model()
         
         if not self.net:
@@ -105,6 +114,23 @@ class CameraApp:
     def _load_yolo_model(self):
         """加载 YOLO 模型（使用 ultralytics 库直接加载 .pt 文件）"""
         try:
+            # --- 动态确定 PyTorch 加速设备 ---
+            self.device = 'cpu'
+            system = platform.system()
+            if system == "Darwin": # macOS
+                if torch.backends.mps.is_available():
+                    self.device = 'mps'
+                    print("✅ macOS GPU (MPS) 加速可用。")
+                else:
+                    print("⚠️ macOS GPU (MPS) 不可用，回退到 CPU。")
+            elif system == "Windows" or system == "Linux":
+                if torch.cuda.is_available():
+                    self.device = 'cuda'
+                    print("✅ CUDA GPU 加速可用。")
+            
+            print(f"🚀 模型将在设备: {self.device} 上运行。")
+            # --- 动态确定设备结束 ---
+
             # 直接使用 ultralytics 库加载 .pt 模型
             self.net = YOLO(YOLO_MODEL_PATH)
             # ultralytics 模型自带类别名称
@@ -116,7 +142,7 @@ class CameraApp:
             self.net = None
         except Exception as e:
             # 捕获 ImportError (如果 YOLO 类是占位符) 或其他 PyTorch/ultralytics 错误
-            messagebox.showerror("模型加载失败", f"加载 YOLO 模型时发生错误: {e}\n请确保已安装 'pip install ultralytics'")
+            messagebox.showerror("模型加载失败", f"加载 YOLO 模型时发生错误: {e}\n请确保已安装 'pip install ultralytics' 且环境配置正确。")
             self.net = None 
 
     def init_ui(self):
@@ -172,14 +198,13 @@ class CameraApp:
 
         # 1. 运行推理 (ultralytics 自动处理所有步骤)
         # results 是一个列表，包含一个 Results 对象，因为我们传递了一张图片
-        # 强制使用 CPU 确保最大兼容性，避免未配置 GPU 导致崩溃
         results = self.net.predict(
             source=img_bgr, 
             conf=CONFIDENCE_THRESHOLD, 
             iou=NMS_THRESHOLD, 
             imgsz=INPUT_SIZE[0],
             verbose=False, # 禁用控制台输出
-            device='cpu' 
+            device=self.device # 使用动态确定的设备 (可能是 'mps', 'cuda', 或 'cpu')
         )
 
         result_frame = img_bgr.copy()
@@ -199,6 +224,7 @@ class CameraApp:
             
             label = self.classes.get(cls, "Unknown")
             
+            # 使用更亮眼的颜色，并根据类别ID略微变化 (可选，这里保持绿色)
             color = (0, 255, 0) # 绿色 BGR
             
             # 绘制矩形
@@ -260,6 +286,7 @@ class CameraApp:
         # 更新状态标签
         self.fps_label.config(text=f"FPS: {fps:.1f} | 推理: {self.detection_time*1000:.1f}ms (每{self.detection_interval}帧)")
         
+        # 保持 30ms 循环（约 33.3 FPS），以尽可能保证流畅度
         self.after_id = self.master.after(30, self.update_preview)
 
     def take_photo(self):
