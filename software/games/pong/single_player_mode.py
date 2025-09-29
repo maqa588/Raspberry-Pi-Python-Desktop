@@ -1,9 +1,9 @@
 import pygame
 import sys
 import time
-import settings
-import game_objects
-import ui_elements
+from software.games.pong import settings
+from software.games.pong import game_objects
+from software.games.pong import ui_elements
 
 def run_single_player():
     """运行单人（本地双人）游戏模式。"""

@@ -1,5 +1,5 @@
 import pygame
-import settings
+from software.games.pong import settings
 
 def draw_text(text, font, color, surface, x, y, center=True):
     """在屏幕上绘制文本"""

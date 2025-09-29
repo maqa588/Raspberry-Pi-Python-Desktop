@@ -5,9 +5,9 @@ import json
 import threading
 import time
 from collections import deque
-import settings
-import game_objects
-import ui_elements
+from software.games.pong import settings
+from software.games.pong import game_objects
+from software.games.pong import ui_elements
 
 # =============================================================================
 # 网络通信模块

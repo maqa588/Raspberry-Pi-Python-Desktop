@@ -17,7 +17,7 @@ def open_pong_game(app_instance):
         if getattr(sys, 'frozen', False):
             command = [main_executable, "game_only", str(project_root)]
         else:
-            command = [main_executable, 'software/games/pong/main.py', str(project_root)]
+            command = [main_executable, 'software/games/pong/main_menu.py', str(project_root)]
             
         # 启动子进程，不阻塞主程序
         subprocess.Popen(command)

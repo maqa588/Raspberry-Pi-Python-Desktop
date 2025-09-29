@@ -1,6 +1,6 @@
 import pygame
 import time
-import settings
+from software.games.pong import settings
 
 class Paddle:
     """代表玩家的球拍"""
