@@ -37,7 +37,7 @@ except ImportError:
 APP_ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
 # *** 更改模型路径为 PyTorch 模型 (.pt) ***
 # 请确保您的 'models' 目录下有 yolov8n.pt 或其他 .pt 模型
-COREML_MODEL_PATH = os.path.join(APP_ROOT_DIR, "models", "yolov8n.pt") 
+COREML_MODEL_PATH = os.path.join(APP_ROOT_DIR, "models", "yolo11n.pt") 
 
 CONFIDENCE_THRESHOLD = 0.4 
 NMS_THRESHOLD = 0.4        
