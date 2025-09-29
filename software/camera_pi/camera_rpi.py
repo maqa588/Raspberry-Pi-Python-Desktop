@@ -47,8 +47,8 @@ class CameraAppRpiTorchScript:
 
         # --- 2. 摄像头和 UI 配置 ---
         self.picam2 = Picamera2()
-        # 摄像头分辨率 480x320
-        config = self.picam2.create_preview_configuration(main={"size": (480, 320)})
+        # 摄像头分辨率 480x320，显式指定格式为 RGB888 (3通道) 以避免 4 通道错误
+        config = self.picam2.create_preview_configuration(main={"size": (480, 320), "format": "RGB888"})
         self.picam2.configure(config)
         self.picam2.start()
 
@@ -100,7 +100,13 @@ class CameraAppRpiTorchScript:
         while True:
             # 获取一帧图像 (RGB numpy array)
             frame = self.picam2.capture_array()
-            # 将 RGB 转换为 BGR 用于 OpenCV 绘制
+            
+            # ⚠️ 安全检查: 如果 picamera2 仍输出 4 通道 (e.g., XBGR8888)，则强制转换为 RGB。
+            if frame.shape[2] == 4:
+                # 假设 picamera2 的 4 通道输出是 RGBA/RGBX
+                frame = cv2.cvtColor(frame, cv2.COLOR_RGBA2RGB) 
+            
+            # 将 RGB (3通道) 转换为 BGR 用于 OpenCV 绘制 (这是显示器的标准颜色空间)
             annotated_frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
             
             self.frame_height, self.frame_width, _ = annotated_frame.shape
@@ -131,7 +137,11 @@ class CameraAppRpiTorchScript:
                     results_tensor = results_tensor[0]
                     
                 # 确保张量是 [N, 6] 格式，并转为 numpy
-                detections = results_tensor.squeeze(0).cpu().numpy() 
+                # 检查输出是否为空，如果为空，则跳过
+                if results_tensor.ndim > 1:
+                    detections = results_tensor.squeeze(0).cpu().numpy() 
+                else:
+                    detections = np.empty((0, 6))
 
                 # 计算缩放因子，用于将 320x320 的坐标映射回 480x320 的原始画面
                 scale_x = self.frame_width / self.input_width  # 480 / 320 = 1.5
