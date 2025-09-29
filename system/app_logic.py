@@ -52,6 +52,8 @@ class LogicHandler:
             return self.open_deepseek
         elif icon_id == "games":
             return self.open_game
+        elif icon_id == "rss_reader": # <-- 新增：RSS 阅读器图标的映射
+            return self.open_rss_reader
         else:
             return lambda: messagebox.showinfo("操作", f"双击了图标: {icon_id}\n请在此处实现您的功能！")
 
@@ -63,6 +65,7 @@ class LogicHandler:
             # 从字典中获取并调用对应的启动函数
             launcher_func = self.app_launchers.get(app_key)
             if launcher_func:
+                # 启动函数需要接收 app_instance 作为参数
                 success = launcher_func(self.app)
                 self.master.after(0, self._update_status_and_destroy_window, success, loading_window, app_name)
             else:
@@ -90,6 +93,9 @@ class LogicHandler:
 
     def open_game(self):
         self._launch_app_thread("games", "游戏")
+        
+    def open_rss_reader(self): # <-- 新增：RSS 阅读器启动方法
+        self._launch_app_thread("rss_reader", "RSS 阅读器")
 
     def menu_placeholder_function(self):
         messagebox.showinfo("提示", "此菜单功能待实现！")

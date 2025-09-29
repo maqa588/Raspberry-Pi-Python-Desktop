@@ -1,7 +1,7 @@
 # -*- mode: python ; coding: utf-8 -*-
 
 # 定义版本号，可以在多处使用
-version_string = "1.0.0.1"
+version_string = "1.0.0.2"
 
 a = Analysis(
     ['../app.py'],

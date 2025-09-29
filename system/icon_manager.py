@@ -44,6 +44,7 @@ class IconManager:
             {"id": "camera", "text": "相机", "icon": "icons/camera.png", "x": 220, "y": 60},
             {"id": "deepseek", "text": "Deepseek", "icon": "icons/deepseek.png", "x": 220, "y": 140},
             {"id": "games", "text": "游戏", "icon": "icons/game.png", "x": 300, "y": 60},
+            {"id": "rss_reader", "text": "RSS 阅读器", "icon": "icons/rss.png", "x": 300, "y": 140},
         ]
 
     def save_layout(self):
