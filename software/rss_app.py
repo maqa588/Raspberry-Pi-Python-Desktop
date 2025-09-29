@@ -243,12 +243,23 @@ class RSSReaderApp:
         text_frame = ttk.Frame(main_frame)
         text_frame.pack(side='left', fill='both', expand=True)
         
-        self.content_text = tk.Text(text_frame, wrap='word', padx=3, pady=3, font=('Arial', 9))
-        self.content_text.pack(side='left', fill='both', expand=True)
+        # === SCROLLBAR ADDITION START ===
         
-        scrollbar = ttk.Scrollbar(text_frame, command=self.content_text.yview)
-        scrollbar.pack(side='right', fill='y')
-        self.content_text.config(yscrollcommand=scrollbar.set)
+        # 1. 创建滚动条
+        # command=self.content_text.yview：将滚动条的操作绑定到文本框的 yview
+        scrollbar = ttk.Scrollbar(text_frame, orient=tk.VERTICAL)
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        
+        # 2. 创建文本框，并绑定滚动条
+        # yscrollcommand=scrollbar.set：将文本框的滚动操作绑定到滚动条的 set 方法
+        self.content_text = tk.Text(text_frame, wrap='word', padx=3, pady=3, font=('Arial', 9),
+                                    yscrollcommand=scrollbar.set)
+        self.content_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        
+        # 3. 关联滚动条和文本框 (双向关联)
+        scrollbar.config(command=self.content_text.yview)
+        
+        # === SCROLLBAR ADDITION END ===
         
         # 配置标签 tag 来模拟链接
         self.content_text.tag_config('title', font=('Arial', 11, 'bold')) 

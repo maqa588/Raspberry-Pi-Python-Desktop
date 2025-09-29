@@ -6,6 +6,7 @@ chardet>=5.1.0
 wxpython>=4.2.3
 requests>=2.32.5
 pygame>=2.6.1
+feedparser>=6.0.12
 
 # 打包工具依赖 (PyInstaller and its components)
 altgraph>=0.17.4

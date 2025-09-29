@@ -17,8 +17,8 @@ if IS_LINUX:
     # For Linux, we move buttons to the menu bar to avoid GTK layout warnings.
     # The toolbar will only contain the URL bar.
 else:
-    WINDOW_WIDTH = 800
-    WINDOW_HEIGHT = 600
+    WINDOW_WIDTH = 1000
+    WINDOW_HEIGHT = 720
     FRAMELESS = False
     # For other platforms, we keep the toolbar as-is.
 
