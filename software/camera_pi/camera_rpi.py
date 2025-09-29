@@ -99,8 +99,8 @@ class CameraAppRpiTorchScript:
         fps_counter = 0
         start_time = time.time()
         
-        # 尝试使用 WINDOW_NORMAL 减少窗口装饰（可能有助于减少导航栏样式）
-        cv2.namedWindow(self.window_name, cv2.WINDOW_NORMAL | cv2.WINDOW_KEEPRATIO)
+        # 修复画面变小问题：移除 WINDOW_NORMAL 标志，让窗口默认以图像尺寸显示
+        cv2.namedWindow(self.window_name) 
         # 恢复鼠标回调
         cv2.setMouseCallback(self.window_name, self.mouse_callback, None) 
 
@@ -205,14 +205,19 @@ class CameraAppRpiTorchScript:
                                         cv2.FONT_HERSHEY_SIMPLEX, 0.5, color_bgr, 2)
                         
             # --- 颜色深度适配 (针对 16 位屏幕 R5G6B5) ---
-            # 适配 16 位显示器，通过颜色量化减少色带和失真。
+            # 适配 16 位显示器，通过比例缩放和四舍五入实现更自然的 16 位颜色量化。
             
-            # B 通道 (索引 0) - 5 位 (丢弃低 3 位)
-            annotated_frame[:, :, 0] = (annotated_frame[:, :, 0] >> 3) << 3
-            # G 通道 (索引 1) - 6 位 (丢弃低 2 位)
-            annotated_frame[:, :, 1] = (annotated_frame[:, :, 1] >> 2) << 2
-            # R 通道 (索引 2) - 5 位 (丢弃低 3 位)
-            annotated_frame[:, :, 2] = (annotated_frame[:, :, 2] >> 3) << 3
+            # B 通道 (5 位, 31 级): V_new = round(V_8bit * 31 / 255) * 255 / 31
+            B_quantized = np.round(annotated_frame[:, :, 0] * 31.0 / 255.0)
+            annotated_frame[:, :, 0] = np.round(B_quantized * 255.0 / 31.0).astype(np.uint8)
+            
+            # G 通道 (6 位, 63 级): V_new = round(V_8bit * 63 / 255) * 255 / 63
+            G_quantized = np.round(annotated_frame[:, :, 1] * 63.0 / 255.0)
+            annotated_frame[:, :, 1] = np.round(G_quantized * 255.0 / 63.0).astype(np.uint8)
+            
+            # R 通道 (5 位, 31 级): V_new = round(V_8bit * 31 / 255) * 255 / 31
+            R_quantized = np.round(annotated_frame[:, :, 2] * 31.0 / 255.0)
+            annotated_frame[:, :, 2] = np.round(R_quantized * 255.0 / 31.0).astype(np.uint8)
             
             # --- UI 绘制 (FPS 和 X 按钮) ---
             
