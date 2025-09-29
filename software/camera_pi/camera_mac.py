@@ -24,7 +24,7 @@ current_dir = os.path.dirname(current_file_path)
 
 # --- YOLOv11n Core ML 配置 (专为 macOS 优化) ---
 # 已更新为 YOLOv11n 模型
-COREML_MODEL_PATH = os.path.join(current_dir, "models", "yolov11n_coreml")
+COREML_MODEL_PATH = os.path.join(current_dir, "models", "yolo11n.mlpackage")
 
 CONFIDENCE_THRESHOLD = 0.4 # 检测框置信度阈值
 NMS_THRESHOLD = 0.4        # 非极大值抑制阈值
@@ -37,7 +37,7 @@ class CameraApp:
         
         # 强制检查平台和 Core ML 文件
         if platform.system() != "Darwin" or not os.path.exists(COREML_MODEL_PATH):
-             msg = "错误：此版本专为 macOS Core ML 设计，请确保：\n1. 操作系统为 macOS。\n2. models 目录下存在 yolov11n_coreml (.mlpackage) 文件包。"
+             msg = "错误：此版本专为 macOS Core ML 设计，请确保：\n1. 操作系统为 macOS。\n2. models 目录下存在 yolo11n.mlpackage) 文件包。"
              messagebox.showerror("配置错误", msg)
              self.master.destroy()
              return
