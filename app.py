@@ -66,8 +66,8 @@ if len(sys.argv) > 1:
         app = CameraApp()
         app.run()
     elif mode == 'camera_rpi_only':
-        from software.camera_pi.camera_rpi import CameraApp
-        app = CameraApp()
+        from software.camera_pi.camera_rpi import CameraAppRpiTorchScript
+        app = CameraAppRpiTorchScript()
         app.run()
     
     # DeepSeek AI 启动 (使用函数 create_deepseek_ui)
