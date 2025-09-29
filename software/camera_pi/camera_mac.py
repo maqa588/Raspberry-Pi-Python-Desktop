@@ -1,31 +1,31 @@
 import cv2
 import time
 from ultralytics import YOLO
+import os
 
 class CameraApp:
     def __init__(self, mode=None):
         self.mode = mode
-        model_path = "software/camera_pi/models/yolo11n_ncnn_model"
-        self.should_exit = False  # 用于退出循环
-
-        # 尝试 Metal (MPS) 加速
-        try:
-            print("⚙️ 尝试使用 Metal (MPS) 加速...")
-            self.device = "mps"
-            self.model = YOLO(model_path)
-            # 测试一次推理，确保 MPS 可用
-            self.model.predict(source=cv2.imread("software/camera_pi/models/test.jpg"),
-                               device=self.device, verbose=False)
-            print("✅ 使用 Metal (MPS) 加速")
-        except Exception as e:
-            print(f"⚠️ Metal 初始化失败 ({e})，回退到 CPU")
-            self.device = "cpu"
-            self.model = YOLO(model_path)
-
-        # X按钮参数
+        self.should_exit = False  # 循环退出标志
         self.btn_size = 30
         self.btn_margin = 10
-        self.window_name = "CameraApp - macOS (Metal/CPU)"
+        self.window_name = "CameraApp - macOS (PyTorch MPS)"
+
+        # 模型路径：PyTorch .pt 模型
+        model_path = "software/camera_pi/models/yolo11n.pt"
+        if not os.path.exists(model_path):
+            raise FileNotFoundError(f"PyTorch 模型未找到: {model_path}")
+
+        # 尝试 MPS 加速
+        try:
+            print("⚙️ 尝试使用 PyTorch MPS 加速...")
+            self.device = "mps"
+            self.model = YOLO(model_path)
+            print("✅ 使用 MPS 加速")
+        except Exception as e:
+            print(f"⚠️ MPS 初始化失败 ({e})，回退 CPU")
+            self.device = "cpu"
+            self.model = YOLO(model_path)
 
     def mouse_callback(self, event, x, y, flags, param):
         if event == cv2.EVENT_LBUTTONDOWN:
@@ -45,8 +45,6 @@ class CameraApp:
             return
 
         cv2.namedWindow(self.window_name)
-        self.should_exit = False
-
         fps_counter = 0
         start_time = time.time()
 
@@ -77,9 +75,8 @@ class CameraApp:
             cv2.putText(annotated_frame, "X", (x1 + 7, y1 + 25),
                         cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2)
 
-            # 设置鼠标回调
+            # 鼠标回调
             cv2.setMouseCallback(self.window_name, self.mouse_callback, annotated_frame)
-
             cv2.imshow(self.window_name, annotated_frame)
 
             key = cv2.waitKey(1) & 0xFF
