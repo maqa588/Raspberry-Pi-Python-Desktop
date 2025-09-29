@@ -17,14 +17,13 @@ except ImportError:
 class CameraAppRpiTorchScript:
     def __init__(self):
         # --- 1. PyTorch 模型配置 (本地加载) ---
-        # 错误分析: 原始的 yolov5n.pt 加载需要 ultralytics 代码来重建模型结构。
-        # 解决方案: 转换为 TorchScript (.ts) 格式，该格式包含完整的模型图，无需源代码依赖。
-        self.MODEL_PATH = "software/camera_pi/models/yolov5n.torchscript" # 路径改为 .torchscript
+        self.MODEL_PATH = "software/camera_pi/models/yolov5n.torchscript" 
         self.NAMES_PATH = "software/camera_pi/models/coco.names" 
         self.CONFIDENCE_THRESHOLD = 0.4
         
         print("⚙️ 初始化 TorchScript 模型...")
         self.model = None
+        # 模型输入尺寸必须与导出时的尺寸一致，这里仍然假定是 320x320
         self.input_width = 320 
         self.input_height = 320 
         
@@ -34,15 +33,12 @@ class CameraAppRpiTorchScript:
         if torch:
             try:
                 if not os.path.exists(self.MODEL_PATH):
-                     # 提示用户文件格式已更改
                      raise FileNotFoundError(f"模型文件未找到: {self.MODEL_PATH}。\n请注意，为解决依赖问题，需要使用 .torchscript 格式的模型。")
 
-                # 加载 TorchScript 模型: torch.jit.load() 不需要底层代码依赖
+                # 加载 TorchScript 模型: torch.jit.load()
                 self.model = torch.jit.load(self.MODEL_PATH, map_location=torch.device('cpu'))
                 self.model.eval()  # 设置为评估模式
                 print(f"✅ TorchScript 模型 ({self.MODEL_PATH}) 从本地加载成功。")
-
-                # 注意：TorchScript 模型通常不包含 'names' 属性，所以我们依赖于 coco.names 文件
                         
             except Exception as e:
                 print(f"⚠️ 无法从本地加载 TorchScript 模型 {self.MODEL_PATH}。请确认文件路径正确且已转换为 TorchScript 格式。")
@@ -59,7 +55,7 @@ class CameraAppRpiTorchScript:
         # UI 参数
         self.button_size = 40
         self.button_margin = 10
-        self.window_name = "CameraApp - PyTorch RPi (TorchScript)" # Renamed window
+        self.window_name = "CameraApp - PyTorch RPi (TorchScript)"
         self.should_exit = False
         self.frame_width = 480
         self.frame_height = 320
@@ -111,18 +107,37 @@ class CameraAppRpiTorchScript:
 
             # --- 核心 PyTorch 推理逻辑 ---
             if self.model:
-                # 1. 推理：直接将 numpy 图像传入模型
-                # model() 内部会处理 RGB/BGR 转换、缩放和归一化
-                # 注意: 此调用依赖于 TorchScript 模型在导出时保留了与 YOLOv5 相似的前向/后处理逻辑。
-                results = self.model(frame, size=self.input_width)
+                # 1. 手动预处理：TorchScript 模型不接受 'size' 参数，必须手动缩放和转换。
                 
-                # 2. 后处理：使用 results.pred 获取原始检测结果 (张量)
-                # results.pred 包含 NMS 后的结果，格式通常是 [x1, y1, x2, y2, confidence, class_id]
-                # ⚠️ 警告: 如果您的 TorchScript 模型只输出原始 Tensor，则此处的后处理逻辑可能需要重写。
-                # 假定导出的 TorchScript 模型仍能通过这种方式提供结果。
-                detections = results.pred[0].cpu().numpy()
+                # 调整大小：从 480x320 缩放到模型需要的 320x320
+                img_resized = cv2.resize(frame, (self.input_width, self.input_height), interpolation=cv2.INTER_LINEAR)
                 
-                # 3. 遍历检测结果并绘制
+                # 转换为 Tensor，并移动到 CPU
+                img_tensor = torch.from_numpy(img_resized).to('cpu').float()
+                
+                # 归一化 (0-255 -> 0.0-1.0) 和 维度调整 (HWC -> CHW -> BCHW)
+                # 结果形状应为 (1, 3, 320, 320)
+                input_tensor = img_tensor.permute(2, 0, 1).unsqueeze(0) / 255.0
+
+                # 2. 推理：现在只传入一个张量，解决 forward() 参数过多的错误
+                # results_tensor 应该是一个 [1, N, 6] 格式的张量
+                results_tensor = self.model(input_tensor)
+                
+                # 3. 后处理：假设模型的输出是经过 NMS 后的 [N, 6] 格式：
+                # [x1, y1, x2, y2, confidence, class_id] 且坐标是相对于 320x320 输入的。
+                
+                # 处理模型输出可能是一个元组的情况
+                if isinstance(results_tensor, tuple):
+                    results_tensor = results_tensor[0]
+                    
+                # 确保张量是 [N, 6] 格式，并转为 numpy
+                detections = results_tensor.squeeze(0).cpu().numpy() 
+
+                # 计算缩放因子，用于将 320x320 的坐标映射回 480x320 的原始画面
+                scale_x = self.frame_width / self.input_width  # 480 / 320 = 1.5
+                scale_y = self.frame_height / self.input_height # 320 / 320 = 1.0
+
+                # 4. 遍历检测结果并绘制
                 for detection in detections:
                     # 检查置信度
                     confidence = detection[4]
@@ -132,17 +147,23 @@ class CameraAppRpiTorchScript:
                         x1, y1, x2, y2 = detection[:4].astype(int)
                         class_id = int(detection[5])
                         
+                        # 坐标缩放回原始画面尺寸 (480x320)
+                        x1_scaled = int(x1 * scale_x)
+                        y1_scaled = int(y1 * scale_y)
+                        x2_scaled = int(x2 * scale_x)
+                        y2_scaled = int(y2 * scale_y)
+                        
                         if class_id < len(self.CLASSES):
                             label = f"{self.CLASSES[class_id]}: {confidence:.2f}"
                             # 使用 class_id 模运算确保颜色索引不越界
                             color = self.COLORS[class_id % len(self.COLORS)] 
 
                             # 绘制边界框
-                            cv2.rectangle(annotated_frame, (x1, y1), (x2, y2), color, 2)
+                            cv2.rectangle(annotated_frame, (x1_scaled, y1_scaled), (x2_scaled, y2_scaled), color, 2)
                             
                             # 绘制标签背景和文字
-                            y_pos = y1 - 15 if y1 - 15 > 15 else y1 + 15
-                            cv2.putText(annotated_frame, label, (x1, y_pos),
+                            y_pos = y1_scaled - 15 if y1_scaled - 15 > 15 else y1_scaled + 15
+                            cv2.putText(annotated_frame, label, (x1_scaled, y_pos),
                                         cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
                         
             # --- UI 绘制 (FPS & 退出按钮) ---
