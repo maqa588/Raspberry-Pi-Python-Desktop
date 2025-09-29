@@ -39,11 +39,11 @@ def open_camera_system(app_instance):
         
     elif system == "Windows":
         # Windows 使用基于 OpenCV 的版本
-        script_path = os.path.join(software_dir, 'camera_pi', 'camera_nonlinux.py')
+        script_path = os.path.join(software_dir, 'camera_pi', 'camera_win.py')
         
     elif system == "Darwin":  # macOS
         # macOS 使用基于 OpenCV 的版本
-        script_path = os.path.join(software_dir, 'camera_pi', 'camera_nonlinux.py')
+        script_path = os.path.join(software_dir, 'camera_pi', 'camera_mac.py')
 
     else:
         messagebox.showinfo("提示", f"当前操作系统 '{system}' 暂不支持 YOLO 相机功能。")
